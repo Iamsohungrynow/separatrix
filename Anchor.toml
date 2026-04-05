@@ -1,0 +1,16 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+policy_controller = "Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP"
+
+[programs.devnet]
+policy_controller = "Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP"
+
+[provider]
+cluster = "Devnet"
+wallet = "keys/owner-devnet.json"
+
+[scripts]
+test = "npm run test:anchor"
