@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-policy_controller = "Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP"
+policy_controller = "Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG"
 
 [programs.devnet]
-policy_controller = "Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP"
+policy_controller = "Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG"
 
 [provider]
 cluster = "Devnet"

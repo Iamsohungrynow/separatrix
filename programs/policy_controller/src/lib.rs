@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP");
+declare_id!("Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG");
 
 const SECONDS_PER_DAY: i64 = 86_400;
 
