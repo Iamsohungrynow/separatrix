@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Install this in a separate virtualenv from requirements-devnet.txt.
+# As of 2026-04-04, x402's SVM extra resolves against a newer Solana Python
+# stack than the one used by anchorpy 0.21.0.
+x402[fastapi,svm]==2.3.0
