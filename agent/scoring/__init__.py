@@ -1,0 +1,1 @@
+"""Scoring and validation helpers."""

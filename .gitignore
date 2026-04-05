@@ -1,0 +1,42 @@
+# Environment
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Keys and secrets - NEVER commit these
+keys/
+secrets/
+*.enc
+*.pem
+
+# Database
+*.db
+*.db-journal
+data/
+.tmp-tests/
+.tmp-installs/
+.tools/
+
+# Anchor / Solana build artifacts
+target/
+.anchor/
+test-ledger/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dashboard build
+dashboard/dist/
+dashboard/node_modules/
