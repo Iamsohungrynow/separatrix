@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QubitAlpha Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">QubitAlpha</p>
+        <h1>Research-driven paper trading, with Solana in the control loop.</h1>
+        <p class="lede">
+          This dashboard shell reads from the local FastAPI server. It is intentionally minimal until the live
+          agent loop and devnet integration are finished.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <p class="label">Agent Status</p>
+          <h2 id="status">Waiting for API</h2>
+          <p id="last-cycle" class="muted">No cycle recorded yet.</p>
+        </article>
+
+        <article class="card">
+          <p class="label">Paper Cash</p>
+          <h2 id="cash">$0.00</h2>
+          <p id="pnl" class="muted">No P&amp;L snapshot yet.</p>
+        </article>
+
+        <article class="card wide">
+          <p class="label">Latest Signal</p>
+          <h2 id="signal">No signal yet</h2>
+          <p id="signal-reasoning" class="muted">Run `python -m agent.main --init-db --once` to seed the local demo.</p>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
