@@ -23,7 +23,7 @@ QubitAlpha is a build-in-public project around one narrow claim:
 2. Turn that into paper-trade signals.
 3. Put Solana in the control loop with an on-chain devnet policy program.
 
-The current repository is intentionally honest about scope. You can run the local paper-trade scaffold today. You can also deploy the Anchor policy controller on Solana devnet after installing the Solana toolchain. The full end-to-end agent is still under construction.
+The current repository is intentionally honest about scope. You can run the local paper-trade scaffold today. You can also deploy the Anchor policy controller on Solana devnet once the Solana toolchain and a supported Anchor build backend are installed. The full end-to-end agent is still under construction.
 
 ## Engineering Standard
 
@@ -129,7 +129,7 @@ Use these exact toolchain targets for the current scaffold:
 - `pip install -r requirements-devnet.txt` for Python-side Anchor / Solana client work
 - `pip install -r requirements-x402.txt` in a separate virtualenv for x402 SVM route experiments
 
-For Windows, the official Solana and Anchor docs still point to WSL2 first. PowerShell wrappers are included in `scripts/setup-devnet.ps1` and `scripts/deploy.ps1` for native Windows setups that already have the Solana and Anchor binaries on `PATH`.
+For Windows, the official Solana and Anchor docs still point to WSL2 first. PowerShell wrappers are included in `scripts/setup-devnet.ps1` and `scripts/deploy.ps1` for native Windows setups that already have the Solana and Anchor binaries on `PATH`, but `anchor build` still needs a supported backend such as Docker Desktop. On this host, the native Windows preflight remains blocked until Docker Desktop or WSL2 is installed.
 
 As of April 4, 2026, `anchorpy==0.21.0` and `x402[svm]==2.3.0` resolve against different `solders` and `construct-typing` ranges, so this repo keeps those install paths separate instead of publishing a broken one-command setup.
 
@@ -137,6 +137,7 @@ As of April 4, 2026, `anchorpy==0.21.0` and `x402[svm]==2.3.0` resolve against d
 
 ```bash
 bash scripts/setup-devnet.sh
+bash scripts/preflight-anchor.sh
 bash scripts/deploy.sh
 anchor test
 ```
@@ -145,11 +146,20 @@ Windows PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
+powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
 powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 anchor test
 ```
 
 The Python executor is not yet wired to submit Anchor transactions. The on-chain program is ready first; the client integration is the next implementation step.
+
+`preflight-anchor` is the required gate before Anchor build and test. It checks:
+
+- Anchor CLI version alignment
+- build backend availability
+- local program-keypair / program-id consistency
+
+If `anchor build` fails on native Windows with the vague message `program not found`, treat that as a build-backend failure first. In practice that usually means Docker Desktop is not installed or not reachable from Anchor.
 
 ## Tests
 
@@ -163,6 +173,7 @@ cmd /c npm run lint:ts
 Once the Solana and Anchor toolchain is installed, add:
 
 ```bash
+bash scripts/preflight-anchor.sh
 anchor test
 ```
 

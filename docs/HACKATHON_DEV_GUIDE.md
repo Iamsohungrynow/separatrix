@@ -124,10 +124,19 @@ Use the repo scripts first:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
+powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
 powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
 ```
 
 If Anchor work is blocked, do not fake success in docs. Note the exact blocker.
+
+`preflight-anchor` is there to fail early on the common high-friction problems:
+
+- wrong Anchor CLI version
+- missing Docker / Rust build backend
+- local program keypair not matching `declare_id!` and `Anchor.toml`
+
+On native Windows, a vague `anchor build` failure like `program not found` is usually a missing Docker backend, not a missing Rust source directory. Treat it as an environment problem first and verify that before rewriting workspace files.
 
 ## What Counts As Done
 

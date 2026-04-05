@@ -44,3 +44,12 @@ Thumbs.db
 # Dashboard build
 dashboard/dist/
 dashboard/node_modules/
+
+# Anchor version manager
+.avm-home/
+
+# Publish docs snapshot
+.publish-docs/
+
+# Log files
+*.log
