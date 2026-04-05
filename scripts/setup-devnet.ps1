@@ -7,9 +7,12 @@ $RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 function Add-LocalToolchainPath {
     $candidatePaths = @()
 
-    $solanaBin = Join-Path $RepoRoot ".tools\solana\$SolanaVersion\solana-release\bin"
-    if (Test-Path $solanaBin) {
-        $candidatePaths += $solanaBin
+    foreach ($solanaFolder in @($SolanaVersion, "v$SolanaVersion") | Select-Object -Unique) {
+        $solanaBin = Join-Path $RepoRoot ".tools\solana\$solanaFolder\solana-release\bin"
+        if (Test-Path $solanaBin) {
+            $candidatePaths += $solanaBin
+            break
+        }
     }
 
     $anchorBin = Join-Path $RepoRoot ".tools\anchor\$AnchorVersion"

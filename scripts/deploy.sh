@@ -11,6 +11,7 @@ if ! command -v solana >/dev/null 2>&1; then
   exit 1
 fi
 
+./scripts/preflight-anchor.sh
 anchor build
 anchor deploy --provider.cluster devnet
 
