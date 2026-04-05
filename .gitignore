@@ -15,9 +15,13 @@ secrets/
 *.db
 *.db-journal
 data/
+.tmp-pip/
 .tmp-tests/
 .tmp-installs/
 .tools/
+.publish-clone/
+.publish-push/
+pytest-cache-files-*/
 
 # Anchor / Solana build artifacts
 target/

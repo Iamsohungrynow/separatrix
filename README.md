@@ -4,7 +4,7 @@
 
 An autonomous research-to-signal trading scaffold for Solana devnet.
 
-[Architecture](docs/design.md) &middot; [Security](docs/security.md) &middot; [Roadmap](docs/ROADMAP.md)
+[Docs Index](docs/README.md) &middot; [Agent Guide](AGENT.md) &middot; [Hackathon Dev Guide](docs/HACKATHON_DEV_GUIDE.md) &middot; [Architecture](docs/design.md) &middot; [Roadmap](docs/ROADMAP.md)
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Solana](https://img.shields.io/badge/solana-devnet-9945FF?logo=solana&logoColor=white)](https://solana.com)
@@ -25,6 +25,28 @@ QubitAlpha is a build-in-public project around one narrow claim:
 
 The current repository is intentionally honest about scope. You can run the local paper-trade scaffold today. You can also deploy the Anchor policy controller on Solana devnet after installing the Solana toolchain. The full end-to-end agent is still under construction.
 
+## Engineering Standard
+
+This repository is meant to be credible, inspectable, and reviewable.
+
+- Claims in the README should map to code that exists.
+- Checks that are described as green should actually have been run.
+- Policy, state, and deployment logic should be treated as high-risk surfaces.
+- Fast iteration is fine; sloppy engineering is not.
+
+The standard for contributions is closer to "small professional system" than "hackathon prototype held together by optimism."
+
+## Documentation
+
+Use these files as the stable navigation layer:
+
+- [`AGENT.md`](AGENT.md): repository operating guide for contributors and coding agents
+- [`docs/README.md`](docs/README.md): documentation map
+- [`docs/HACKATHON_DEV_GUIDE.md`](docs/HACKATHON_DEV_GUIDE.md): fast contributor workflow for shipping during a hackathon
+- [`docs/design.md`](docs/design.md): architecture boundary and execution model
+- [`docs/security.md`](docs/security.md): threat model and safety rules
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): implementation phases
+
 ## What Exists Today
 
 - Python agent scaffold with config loading, SQLite schema, local dry-run loop, and a paper-trade executor.
@@ -43,6 +65,22 @@ The current repository is intentionally honest about scope. You can run the loca
 - A hosted dashboard with real trade history.
 
 That separation is deliberate. It keeps the public repo credible while still showing a concrete Solana path.
+
+## Validation Surface
+
+Verified in the default local workflow:
+
+- Python unit tests
+- TypeScript type-check / test scaffold validation
+- local paper-trade scaffold run path
+
+Not part of the default verified path yet:
+
+- `anchor build`
+- `anchor test`
+- live Solana submission from Python
+
+That distinction matters. This repo should never imply that unverified paths are already production-ready.
 
 ## Architecture
 
@@ -128,16 +166,25 @@ Once the Solana and Anchor toolchain is installed, add:
 anchor test
 ```
 
+At the moment, the repo should be described as:
+
+- Python-test green
+- TypeScript-check green
+- Anchor source and tests scaffolded, but not part of the default green path yet
+
+If you change behavior, the expectation is to verify the relevant path directly, not just assume the existing scaffold still holds.
+
 ## Repo Layout
 
 ```text
 QubitAlpha/
+|-- AGENT.md                    # contributor / coding-agent guide
 |-- agent/                      # Python scaffold
-|-- programs/policy_controller/ # Anchor program
-|-- tests/                      # Python + Anchor tests
-|-- scripts/                    # devnet setup and deploy helpers
 |-- dashboard/                  # static dashboard shell
-`-- docs/                       # architecture, roadmap, security
+|-- docs/                       # docs index, roadmap, security, hackathon guide
+|-- programs/policy_controller/ # Anchor program
+|-- scripts/                    # devnet setup and deploy helpers
+`-- tests/                      # Python + Anchor tests
 ```
 
 ## Public Roadmap
@@ -179,6 +226,14 @@ Useful contribution areas:
 - `anchorpy` policy submission in `agent/trading/policy_client.py`
 - x402 integration in `agent/api/server.py`
 - Dashboard polish in `dashboard/`
+
+Contribution standard:
+
+- keep changes narrow and reviewable
+- test the code path you touched
+- do not overstate what is implemented
+- document sharp edges and blockers plainly
+- treat data flow, policy enforcement, and deployment behavior with senior-level caution
 
 A GitHub Actions workflow is included for Python tests and TypeScript type-checking so the repo can show basic health without requiring Solana tooling on every CI run.
 
