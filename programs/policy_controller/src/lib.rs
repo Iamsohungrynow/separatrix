@@ -10,7 +10,6 @@ pub mod policy_controller {
 
     pub fn initialize_policy(
         ctx: Context<InitializePolicy>,
-        agent: Pubkey,
         daily_buy_limit_microusdc: u64,
         per_trade_buy_limit_microusdc: u64,
     ) -> Result<()> {
@@ -21,7 +20,7 @@ pub mod policy_controller {
 
         let policy = &mut ctx.accounts.policy;
         policy.owner = ctx.accounts.owner.key();
-        policy.agent = agent;
+        policy.agent = ctx.accounts.agent.key();
         policy.daily_buy_limit_microusdc = daily_buy_limit_microusdc;
         policy.per_trade_buy_limit_microusdc = per_trade_buy_limit_microusdc;
         policy.daily_buy_used_microusdc = 0;
@@ -107,15 +106,15 @@ pub mod policy_controller {
 }
 
 #[derive(Accounts)]
-#[instruction(agent: Pubkey)]
 pub struct InitializePolicy<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
+    pub agent: Signer<'info>,
     #[account(
         init,
         payer = owner,
         space = 8 + AgentPolicy::INIT_SPACE,
-        seeds = [b"policy", agent.as_ref()],
+        seeds = [b"policy", agent.key().as_ref()],
         bump
     )]
     pub policy: Account<'info, AgentPolicy>,

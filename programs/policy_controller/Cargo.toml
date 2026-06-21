@@ -14,6 +14,28 @@ cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang = "0.30.1"
+# Solana 1.18 allows any blake3 1.x, but newer releases pull digest 0.11 and
+# edition2024-only manifests that Cargo 1.75.0 cannot parse.
+blake3 = "=1.5.0"
+# Solana 1.18 also allows newer borsh 1.x, but recent releases resolve through
+# toml_edit/toml_datetime crates that require edition2024 support.
+borsh1 = { package = "borsh", version = "=1.2.1" }
+# `solana-frozen-abi` -> `im` enables `rayon`, and the latest rayon 1.11 line
+# raises the MSRV past the solana toolchain's rustc 1.75.0-dev.
+rayon = "=1.10.0"
+rayon-core = "=1.12.1"
+# `toml_edit 0.20` accepts any indexmap 2.x, and current releases require a
+# newer rustc than the solana toolchain provides.
+indexmap = "=2.2.6"
+# `heck 0.3.x` accepts any unicode-segmentation 1.x, but recent releases raise
+# the minimum supported Rust version beyond the solana toolchain.
+unicode-segmentation = "=1.10.1"
+# serde 1.0.219+ split out a `serde_core` crate whose build internals require a
+# newer rustc than the Solana 1.18 SBF toolchain (rustc 1.75). Pin the serde
+# stack below the split so no serde_core is pulled into the program build.
+serde = "=1.0.217"
+serde_derive = "=1.0.217"
