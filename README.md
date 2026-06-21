@@ -13,7 +13,7 @@ An autonomous research-to-signal trading scaffold for Solana devnet.
 
 </div>
 
-> Status: scaffolded MVP. The repo now contains a real Python agent skeleton, a real Anchor policy controller, local tests, and pinned devnet setup files. It does not yet contain live market ingestion, Groq scoring, x402 payments, or a production dashboard.
+> Status: scaffolded MVP. The repo now contains a real Python agent skeleton, a real Anchor policy controller, local tests, live local-policy ingestion/scoring, and pinned devnet setup files. It does not yet contain x402 payments or a production dashboard.
 
 ## What This Repo Is
 
@@ -50,19 +50,20 @@ Use these files as the stable navigation layer:
 ## What Exists Today
 
 - Python agent scaffold with config loading, SQLite schema, local dry-run loop, and a paper-trade executor.
-- FastAPI status API with `GET /health`, `GET /pnl`, `GET /signal/latest`, and `GET /signal/history`.
+- Live arXiv/RSS ingestion, Jupiter/CoinGecko price fetchers, Groq-backed scoring, signal generation, and validation.
+- Raw item, score, signal, trade, position, and P&L persistence in SQLite.
+- FastAPI status API with `GET /health`, `GET /policy`, `GET /pnl`, `GET /signal/latest`, `GET /signal/history`, and `GET /trades`.
 - Anchor program for `policy_controller` with daily BUY caps, per-trade BUY caps, monotonic trade sequence, and halt/resume.
+- Fail-closed Python-to-devnet policy approval through the repo's Anchor TypeScript command bridge.
 - TypeScript Anchor test scaffold.
 - Pinned devnet scripts for Solana `1.18.17` and Anchor `0.30.1`.
-- Static dashboard shell in [`dashboard/`](dashboard/).
+- Static API-backed dashboard in [`dashboard/`](dashboard/).
 
 ## What Does Not Exist Yet
 
-- Live arXiv and RSS ingestion.
-- Groq-backed scoring and signal generation.
-- Live `anchorpy` integration from the Python executor into the deployed program.
+- Native `anchorpy` integration from the Python executor into the deployed program. The current devnet path uses the repo's Anchor TypeScript command bridge.
 - x402-paid API routes.
-- A hosted dashboard with real trade history.
+- A hosted production dashboard.
 
 That separation is deliberate. It keeps the public repo credible while still showing a concrete Solana path.
 
@@ -73,14 +74,35 @@ Verified in the default local workflow:
 - Python unit tests
 - TypeScript type-check / test scaffold validation
 - local paper-trade scaffold run path
+- Solana Rust source check with `cargo +solana check --manifest-path programs/policy_controller/Cargo.toml`
 
 Not part of the default verified path yet:
 
-- `anchor build`
-- `anchor test`
-- live Solana submission from Python
+- `anchor test` (the TypeScript test suite has not been run against the live program)
 
-That distinction matters. This repo should never imply that unverified paths are already production-ready.
+Devnet deployment, verified on June 21, 2026:
+
+The `policy_controller` program is live on Solana devnet. `anchor build` now
+produces `target/deploy/policy_controller.so` on this host (see the dependency
+pins in `programs/policy_controller/Cargo.toml` and `scripts/gen-idl.py` for the
+IDL), and the program was deployed and exercised end to end.
+
+- Program id: [`Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG`](https://explorer.solana.com/address/Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG?cluster=devnet)
+- Policy PDA: [`DrRXobtrawrvFspoMrjVPxG5r76mD1kS49HRDTgoiFUx`](https://explorer.solana.com/address/DrRXobtrawrvFspoMrjVPxG5r76mD1kS49HRDTgoiFUx?cluster=devnet)
+- `initialize_policy`: [tx](https://explorer.solana.com/tx/3hSG6X6PwD99GuYtG353nYjj1eN194ahbJtWvuqA53oANJQiKdMMGLXRgyHfWenn8Hzi4oEosUbB6x2vxfg2PMdp?cluster=devnet) (daily cap 10 USDC, per-trade cap 5 USDC)
+- `submit_trade` BUY approved: [tx](https://explorer.solana.com/tx/3Yphd5ckjVhZwjDKbBEFLwzGGmJedK39e1Q3mxbwGBN3HsRk9U4XYBHhM3KZdGB3pWEpycp9eD71Jn7yDNA4bbHy?cluster=devnet)
+- `set_halt(true)`: [tx](https://explorer.solana.com/tx/5DV32K31hxha4CGf4LPhX9xjG3vk9RngNyNvMCdzfQLUbF7APFjNo8YagRTL6La4xjqqygDKne3a9az58uATW3RC?cluster=devnet)
+- `set_halt(false)` (resume): [tx](https://explorer.solana.com/tx/Yvjw7vN1SCW8oszVEngKgZC2Xor5BHCzr5nZbwHF6si56XBxFY1y8XrTxbNviLnCbz1MVv8J4dzhdJ4AeUvmxse?cluster=devnet)
+
+- `submit_trade` BUY **rejected** on-chain (`TRADE_TOO_BIG`): [failed tx](https://explorer.solana.com/tx/3keQpYZfmuC9M9roVtz9xRKA562ZqNBZt536oFMeY7qF3PE5F8z7duazt9Cu4ixJdU3KiAYfcmX7ThRNS4NUb7Hu?cluster=devnet) — a 99 USDC BUY against the 5 USDC per-trade cap, finalized on devnet with program log `Error Code: TradeTooBig. Error Number: 6001`.
+
+Policy enforcement is fail-closed. By default the Python/TypeScript bridge rejects
+an over-cap or halted trade at transaction preflight, so it never leaves the
+client. `scripts/land-rejection.ts` instead submits with `skipPreflight` so the
+rejection lands on-chain as the verifiable failed transaction linked above.
+
+This repo should never imply that unverified paths are already production-ready.
+Paper trades only; no funds are custodied.
 
 ## Architecture
 
@@ -139,6 +161,8 @@ As of April 4, 2026, `anchorpy==0.21.0` and `x402[svm]==2.3.0` resolve against d
 bash scripts/setup-devnet.sh
 bash scripts/preflight-anchor.sh
 bash scripts/deploy.sh
+bash scripts/init-policy.sh
+bash scripts/smoke-devnet.sh
 anchor test
 ```
 
@@ -148,10 +172,14 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
 powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
 powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
+powershell -ExecutionPolicy Bypass -File scripts/init-policy.ps1
+powershell -ExecutionPolicy Bypass -File scripts/smoke-devnet.ps1
 anchor test
 ```
 
-The Python executor is not yet wired to submit Anchor transactions. The on-chain program is ready first; the client integration is the next implementation step.
+The Python executor can submit devnet policy approvals through the repo's Anchor TypeScript command bridge when `ENABLE_DEVNET_POLICY=true`. Native `anchorpy` integration is still a later cleanup target.
+
+After deployment, `init-policy` initializes the policy PDA for the configured owner and agent wallets. `smoke-devnet` submits a small devnet BUY approval, verifies halt rejection, resumes the policy, and prints explorer links.
 
 `preflight-anchor` is the required gate before Anchor build and test. It checks:
 
@@ -191,7 +219,7 @@ If you change behavior, the expectation is to verify the relevant path directly,
 QubitAlpha/
 |-- AGENT.md                    # contributor / coding-agent guide
 |-- agent/                      # Python scaffold
-|-- dashboard/                  # static dashboard shell
+|-- dashboard/                  # API-backed static dashboard
 |-- docs/                       # docs index, roadmap, security, hackathon guide
 |-- programs/policy_controller/ # Anchor program
 |-- scripts/                    # devnet setup and deploy helpers
@@ -202,20 +230,20 @@ QubitAlpha/
 
 ### Phase 1
 
-- Replace demo trades with live ingestion and scoring.
-- Add real signal generation and validation rules.
-- Persist richer P&L snapshots.
+- Harden live ingestion, scoring, signal generation, and validation.
+- Expand persistence and audit views for raw items, scores, signals, trades, and P&L.
+- Add more realistic risk controls around drawdown and concentration.
 
 ### Phase 2
 
 - Wire the Python executor to the deployed Anchor program with `anchorpy`.
 - Run Anchor tests on local validator and devnet.
-- Add explorer links and on-chain state reads to the API.
+- Keep the command bridge as a fallback while native `anchorpy` matures.
 
 ### Phase 3
 
 - Enable x402 paid routes on devnet.
-- Replace the static dashboard with a live frontend.
+- Host and polish the API-backed dashboard.
 - Publish demo material and CI.
 
 Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -234,7 +262,7 @@ Useful contribution areas:
 
 - Real fetchers in `agent/ingestion/`
 - Groq scoring in `agent/scoring/`
-- `anchorpy` policy submission in `agent/trading/policy_client.py`
+- native `anchorpy` policy submission in `agent/trading/policy_client.py`
 - x402 integration in `agent/api/server.py`
 - Dashboard polish in `dashboard/`
 
