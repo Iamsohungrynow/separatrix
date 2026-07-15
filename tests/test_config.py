@@ -20,7 +20,7 @@ class SettingsTestCase(unittest.TestCase):
                 "\n".join(
                     [
                         "SQLITE_PATH=data/test.db",
-                        "ENABLE_DEVNET_POLICY=true",
+                        "ENABLE_DEVNET_LEASH=true",
                         "TRACKED_ASSETS=SOL,RNDR",
                         "POLL_INTERVAL_SECONDS=60",
                     ]
@@ -31,7 +31,7 @@ class SettingsTestCase(unittest.TestCase):
             settings = Settings.from_env(env_path)
 
             self.assertEqual(settings.sqlite_path, "data/test.db")
-            self.assertTrue(settings.enable_devnet_policy)
+            self.assertTrue(settings.enable_devnet_leash)
             self.assertEqual(settings.tracked_assets, ["SOL", "RNDR"])
             self.assertEqual(settings.poll_interval_seconds, 60)
 
@@ -74,14 +74,14 @@ class SettingsTestCase(unittest.TestCase):
             path = settings.database_path
 
         self.assertEqual(settings.solana_network, "devnet")
-        self.assertEqual(path.name, "qubitalpha.db")
+        self.assertEqual(path.name, "leash.db")
         self.assertTrue(path.parent.exists())
 
     def test_falsey_values_and_blank_lists_fall_back_cleanly(self) -> None:
         with patch.dict(
             "os.environ",
             {
-                "ENABLE_DEVNET_POLICY": "off",
+                "ENABLE_DEVNET_LEASH": "off",
                 "ENABLE_X402": "no",
                 "TRACKED_ASSETS": "",
                 "POLL_INTERVAL_SECONDS": "15",
@@ -90,7 +90,7 @@ class SettingsTestCase(unittest.TestCase):
         ):
             settings = Settings.from_env(".env.does-not-exist")
 
-        self.assertFalse(settings.enable_devnet_policy)
+        self.assertFalse(settings.enable_devnet_leash)
         self.assertFalse(settings.enable_x402)
         self.assertEqual(settings.tracked_assets, ["SOL", "RNDR", "IO", "PYTH"])
         self.assertEqual(settings.poll_interval_seconds, 15)

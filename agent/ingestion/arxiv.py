@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 
 import httpx
 
-logger = logging.getLogger("qubitalpha.ingestion.arxiv")
+logger = logging.getLogger("leash.ingestion.arxiv")
 
 # arXiv API — free, no key required.  Returns Atom XML.
 ARXIV_API_URL = "http://export.arxiv.org/api/query"

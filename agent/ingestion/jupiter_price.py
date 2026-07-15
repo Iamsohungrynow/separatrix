@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("qubitalpha.ingestion.jupiter")
+logger = logging.getLogger("leash.ingestion.jupiter")
 
 # Jupiter Price API v2 — free, no key required.
 JUPITER_PRICE_URL = "https://api.jup.ag/price/v2"

@@ -8,7 +8,7 @@ from email.utils import parsedate_to_datetime
 import httpx
 import feedparser
 
-logger = logging.getLogger("qubitalpha.ingestion.news_rss")
+logger = logging.getLogger("leash.ingestion.news_rss")
 
 # Google News RSS — free, no key required.
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"

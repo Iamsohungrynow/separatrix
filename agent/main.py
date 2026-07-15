@@ -10,12 +10,12 @@ from agent.config import Settings
 from agent.db.database import Database
 from agent.models import Signal
 from agent.trading.executor import PaperTradeExecutor
-from agent.trading.policy_client import AnchorPolicyClient, LocalPolicyClient
+from agent.trading.leash_client import AnchorLeashClient, LocalLeashClient
 from agent.utils.logging import configure_logging
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="QubitAlpha local scaffold")
+    parser = argparse.ArgumentParser(description="Leash demo agent: a research-driven paper trader kept on an on-chain leash")
     parser.add_argument("--env-file", default=".env", help="Path to .env file")
     parser.add_argument("--init-db", action="store_true", help="Initialize the SQLite schema before running")
     parser.add_argument("--once", action="store_true", help="Run one demo cycle and exit")
@@ -214,7 +214,7 @@ def main() -> None:
 
     settings = Settings.from_env(args.env_file)
     configure_logging(settings.log_level)
-    logger = getLogger("qubitalpha.main")
+    logger = getLogger("leash.main")
 
     db = Database(settings.database_path)
     try:
@@ -226,23 +226,24 @@ def main() -> None:
             logger.info("database initialized at %s", settings.database_path)
             return
 
-        if settings.enable_devnet_policy:
-            policy_client = AnchorPolicyClient(
+        if settings.enable_devnet_leash:
+            leash_client = AnchorLeashClient(
                 rpc_url=settings.solana_rpc_url,
-                program_id=settings.policy_controller_program_id,
+                program_id=settings.leash_program_id,
                 wallet_path=settings.agent_wallet_path,
             )
         else:
-            policy_client = LocalPolicyClient(
-                daily_buy_limit_usdc=settings.daily_buy_limit_usdc,
-                per_trade_buy_limit_usdc=settings.per_trade_buy_limit_usdc,
-                starting_sequence=db.get_next_trade_sequence(),
+            leash_client = LocalLeashClient(
+                per_tx_cap_sol=settings.per_tx_cap_sol,
+                daily_cap_sol=settings.daily_cap_sol,
             )
 
         executor = PaperTradeExecutor(
             db=db,
-            policy_client=policy_client,
+            leash_client=leash_client,
             starting_cash_usdc=settings.starting_paper_cash_usdc,
+            sol_per_usdc_budget=settings.sol_per_usdc_budget,
+            spend_recipient=settings.spend_recipient or None,
         )
 
         if args.live:
@@ -276,8 +277,8 @@ def main() -> None:
             )
             return
 
-        if settings.enable_devnet_policy:
-            logger.info("ENABLE_DEVNET_POLICY=true; demo signal will require devnet Anchor approval")
+        if settings.enable_devnet_leash:
+            logger.info("ENABLE_DEVNET_LEASH=true; the demo BUY must clear the on-chain leash")
 
         demo_signal = Signal(
             asset="RNDR",

@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("qubitalpha.ingestion.coingecko")
+logger = logging.getLogger("leash.ingestion.coingecko")
 
 # CoinGecko free API — no key required, ~30 req/min rate limit.
 COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"

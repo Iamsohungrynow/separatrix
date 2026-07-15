@@ -59,8 +59,12 @@ class Settings:
     owner_wallet_path: str
     agent_wallet_path: str
     treasury_wallet_path: str
-    policy_controller_program_id: str
-    enable_devnet_policy: bool
+    leash_program_id: str
+    enable_devnet_leash: bool
+    per_tx_cap_sol: float
+    daily_cap_sol: float
+    sol_per_usdc_budget: float
+    spend_recipient: str
     groq_api_key: str
     tracked_assets: list[str]
     poll_interval_seconds: int
@@ -68,7 +72,6 @@ class Settings:
     confidence_threshold: float
     starting_paper_cash_usdc: float
     base_trade_amount_usdc: float
-    daily_buy_limit_usdc: float
     per_trade_buy_limit_usdc: float
     max_position_pct: float
     max_drawdown_pct: float
@@ -86,16 +89,20 @@ class Settings:
         return cls(
             app_env=os.getenv("APP_ENV", "development"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
-            sqlite_path=os.getenv("SQLITE_PATH", "data/qubitalpha.db"),
+            sqlite_path=os.getenv("SQLITE_PATH", "data/leash.db"),
             solana_rpc_url=os.getenv("SOLANA_RPC_URL", "https://api.devnet.solana.com"),
             solana_network=os.getenv("SOLANA_NETWORK", "devnet"),
             owner_wallet_path=os.getenv("OWNER_WALLET_PATH", "keys/owner-devnet.json"),
             agent_wallet_path=os.getenv("AGENT_WALLET_PATH", "keys/agent-devnet.json"),
             treasury_wallet_path=os.getenv("TREASURY_WALLET_PATH", "keys/treasury-devnet.json"),
-            policy_controller_program_id=os.getenv(
-                "POLICY_CONTROLLER_PROGRAM_ID", "Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG"
+            leash_program_id=os.getenv(
+                "LEASH_PROGRAM_ID", "EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV"
             ),
-            enable_devnet_policy=_get_bool("ENABLE_DEVNET_POLICY", False),
+            enable_devnet_leash=_get_bool("ENABLE_DEVNET_LEASH", False),
+            per_tx_cap_sol=_get_float("PER_TX_CAP_SOL", 0.05),
+            daily_cap_sol=_get_float("DAILY_CAP_SOL", 0.2),
+            sol_per_usdc_budget=_get_float("SOL_PER_USDC_BUDGET", 0.001),
+            spend_recipient=os.getenv("SPEND_RECIPIENT", ""),
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             tracked_assets=_get_list("TRACKED_ASSETS", ["SOL", "RNDR", "IO", "PYTH"]),
             poll_interval_seconds=_get_int("POLL_INTERVAL_SECONDS", 900),
@@ -103,7 +110,6 @@ class Settings:
             confidence_threshold=_get_float("CONFIDENCE_THRESHOLD", 0.7),
             starting_paper_cash_usdc=_get_float("STARTING_PAPER_CASH_USDC", 1000.0),
             base_trade_amount_usdc=_get_float("BASE_TRADE_AMOUNT_USDC", 5.0),
-            daily_buy_limit_usdc=_get_float("DAILY_BUY_LIMIT_USDC", 10.0),
             per_trade_buy_limit_usdc=_get_float("PER_TRADE_BUY_LIMIT_USDC", 5.0),
             max_position_pct=_get_float("MAX_POSITION_PCT", 0.20),
             max_drawdown_pct=_get_float("MAX_DRAWDOWN_PCT", 0.30),
