@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import sqlite3
 import unittest
 from pathlib import Path
 
@@ -105,6 +106,138 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(history[0]["asset"], "RNDR")
         self.assertAlmostEqual(pnl["cash_usdc"], 245.5)
         self.assertAlmostEqual(pnl["realized_pnl"], 1.25)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_trade_history_returns_recent_trades_first(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_trade_history"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+        database.ensure_cash(1000.0)
+
+        for i, asset in enumerate(["SOL", "RNDR", "PYTH"], start=1):
+            signal_id = database.insert_signal(
+                Signal(
+                    asset=asset,
+                    action="BUY",
+                    sentiment=0.7,
+                    confidence=0.8,
+                    position_size_usdc=5.0,
+                    reasoning=f"trade {i}",
+                    sources=[f"local://{i}"],
+                ),
+                devnet_tx=f"LOCAL-{i:06d}",
+            )
+            database.record_trade(
+                signal_id=signal_id,
+                asset=asset,
+                action="BUY",
+                amount_usdc=5.0,
+                price_usdc=10.0,
+                quantity=0.5,
+                tx_signature=f"LOCAL-{i:06d}",
+            )
+
+        all_trades = database.trade_history(limit=10)
+        latest_two = database.trade_history(limit=2)
+        empty_default = Database(case_dir / "empty.db")
+        empty_default.initialize()
+        empty_history = empty_default.trade_history()
+        empty_default.close()
+        database.close()
+
+        self.assertEqual(len(all_trades), 3)
+        self.assertEqual([t["asset"] for t in all_trades], ["PYTH", "RNDR", "SOL"])
+        self.assertEqual(all_trades[0]["tx_signature"], "LOCAL-000003")
+        self.assertEqual(all_trades[0]["action"], "BUY")
+        self.assertAlmostEqual(all_trades[0]["amount_usdc"], 5.0)
+        self.assertEqual(len(latest_two), 2)
+        self.assertEqual(latest_two[0]["asset"], "PYTH")
+        self.assertEqual(empty_history, [])
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_foreign_keys_enabled_for_scores(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_foreign_keys"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        foreign_keys = database.connection.execute("PRAGMA foreign_keys").fetchone()
+        assert foreign_keys is not None
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            database.insert_score(
+                raw_item_id=999,
+                score={
+                    "asset": "SOL",
+                    "sentiment": 0.6,
+                    "confidence": 0.8,
+                    "reasoning": "missing raw item",
+                    "model": "test",
+                },
+            )
+
+        database.close()
+        self.assertEqual(foreign_keys[0], 1)
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_upserts_raw_items_and_records_scores(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_raw_items_scores"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+        raw_item = {
+            "source": "arxiv",
+            "url": "https://example.test/paper",
+            "url_hash": "paper-hash",
+            "title": "Original Title",
+            "content": "Solana policy controller research.",
+            "published_at": "2026-06-18T00:00:00Z",
+            "fetched_at": "2026-06-18T01:00:00Z",
+            "metadata": '{"kind":"paper"}',
+        }
+
+        first_id = database.upsert_raw_item(raw_item)
+        second_id = database.upsert_raw_item({**raw_item, "title": "Updated Title"})
+        score_id = database.insert_score(
+            raw_item_id=second_id,
+            score={
+                "item_index": 0,
+                "asset": "SOL",
+                "sentiment": 0.85,
+                "confidence": 0.9,
+                "reasoning": "bullish policy signal",
+                "model": "test",
+                "scored_at": "2026-06-18T01:01:00Z",
+            },
+        )
+
+        raw_count = database.connection.execute("SELECT COUNT(*) FROM raw_items").fetchone()[0]
+        score_count = database.connection.execute("SELECT COUNT(*) FROM scores").fetchone()[0]
+        raw_row = database.connection.execute("SELECT id, title FROM raw_items").fetchone()
+        score_row = database.connection.execute(
+            "SELECT id, raw_item_id, asset, reasoning FROM scores"
+        ).fetchone()
+        database.close()
+
+        self.assertEqual(first_id, second_id)
+        self.assertEqual(raw_count, 1)
+        self.assertEqual(score_count, 1)
+        assert raw_row is not None
+        assert score_row is not None
+        self.assertEqual(raw_row["title"], "Updated Title")
+        self.assertEqual(score_id, score_row["id"])
+        self.assertEqual(score_row["raw_item_id"], raw_row["id"])
+        self.assertEqual(score_row["asset"], "SOL")
+        self.assertEqual(score_row["reasoning"], "bullish policy signal")
 
         shutil.rmtree(case_dir, ignore_errors=True)
 

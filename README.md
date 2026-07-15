@@ -1,10 +1,12 @@
 <div align="center">
 
-# QubitAlpha
+# Leash
 
-An autonomous research-to-signal trading scaffold for Solana devnet.
+**On-chain spending guardrails for AI agents on Solana.**
 
-[Docs Index](docs/README.md) &middot; [Agent Guide](AGENT.md) &middot; [Hackathon Dev Guide](docs/HACKATHON_DEV_GUIDE.md) &middot; [Architecture](docs/design.md) &middot; [Roadmap](docs/ROADMAP.md)
+Give your agent a wallet it cannot rug you with.
+
+[Docs Index](docs/README.md) &middot; [Agent Guide](AGENT.md) &middot; [Architecture](docs/design.md) &middot; [Security](docs/security.md) &middot; [Roadmap](docs/ROADMAP.md)
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Solana](https://img.shields.io/badge/solana-devnet-9945FF?logo=solana&logoColor=white)](https://solana.com)
@@ -13,241 +15,185 @@ An autonomous research-to-signal trading scaffold for Solana devnet.
 
 </div>
 
-> Status: scaffolded MVP. The repo now contains a real Python agent skeleton, a real Anchor policy controller, local tests, and pinned devnet setup files. It does not yet contain live market ingestion, Groq scoring, x402 payments, or a production dashboard.
+> Status: live on Solana devnet. The program, the TypeScript bridge, the Python client, the demo agent, and the dashboard all run end to end today. Mainnet deployment, SPL-token vaults, and a packaged SDK are roadmap items, not claims.
 
-## What This Repo Is
+## The Problem
 
-QubitAlpha is a build-in-public project around one narrow claim:
+Everyone wants AI agents that can pay for things: API credits, data, trades, other agents. Nobody sane wants to hand an LLM their private key. Prompt-level guardrails ("please don't spend more than $5") are not guardrails; they are suggestions to a stochastic process.
 
-1. Read niche research and news.
-2. Turn that into paper-trade signals.
-3. Put Solana in the control loop with an on-chain devnet policy program.
+Leash moves the guardrails onto the chain, where the agent cannot negotiate with them:
 
-The current repository is intentionally honest about scope. You can run the local paper-trade scaffold today. You can also deploy the Anchor policy controller on Solana devnet once the Solana toolchain and a supported Anchor build backend are installed. The full end-to-end agent is still under construction.
+- The owner funds a **program-owned vault**. The agent's own wallet holds nothing but fee dust.
+- The agent can only move value by calling `spend` on the Leash program.
+- The program enforces a **per-transaction cap**, a **daily budget** (UTC day roll), and an optional **recipient allowlist**.
+- The owner has a **kill switch** (`set_halt`) and can update limits or withdraw the whole vault at any time.
+- Every rule is enforced in program logic, fail-closed. A blocked spend is a failed transaction, not a logged warning.
 
-## Engineering Standard
+## How It Works
 
-This repository is meant to be credible, inspectable, and reviewable.
+```text
+owner keypair                          agent keypair (any AI agent)
+     |                                        |
+     |  create_leash / deposit /              |  spend(amount, recipient)
+     |  set_allowlist / set_halt /            |
+     |  update_limits / withdraw              v
+     |                                +---------------+
+     +------------------------------->|  Leash program |  checks: halted? per-tx cap?
+                                      |   (Anchor)     |  daily budget? allowlist? vault?
+                                      +-------+-------+
+                                              | CPI transfer (only if every check passes)
+                                              v
+                                    vault PDA ---> recipient
+```
 
-- Claims in the README should map to code that exists.
-- Checks that are described as green should actually have been run.
-- Policy, state, and deployment logic should be treated as high-risk surfaces.
-- Fast iteration is fine; sloppy engineering is not.
+State lives in a `LeashState` PDA (`["leash", agent]`); funds live in a system-owned vault PDA (`["vault", leash]`) that only the program can sign for. One leash per agent key.
 
-The standard for contributions is closer to "small professional system" than "hackathon prototype held together by optimism."
+| Instruction | Signer | Effect |
+| --- | --- | --- |
+| `create_leash(per_tx_cap, daily_cap, allowlist_enforced)` | owner | Creates the policy for an agent pubkey (no agent consent needed) |
+| `deposit(amount)` | anyone | Moves SOL into the vault |
+| `spend(amount)` + recipient account | agent | The only value-moving path the agent has; fail-closed policy checks, then CPI transfer |
+| `update_limits(per_tx_cap, daily_cap)` | owner | Adjusts caps |
+| `set_halt(halted)` | owner | Kill switch / resume |
+| `set_allowlist(enforced, recipients[])` | owner | Up to 8 allowed recipients |
+| `withdraw(amount)` | owner | Pulls funds back out |
 
-## Documentation
+Rejections surface as typed errors: `LeashHalted`, `PerTxCapExceeded`, `DailyCapExceeded`, `RecipientNotAllowed`, `VaultInsufficient`, `UnauthorizedAgent`, `UnauthorizedOwner`.
 
-Use these files as the stable navigation layer:
+## Live on Devnet
 
-- [`AGENT.md`](AGENT.md): repository operating guide for contributors and coding agents
-- [`docs/README.md`](docs/README.md): documentation map
-- [`docs/HACKATHON_DEV_GUIDE.md`](docs/HACKATHON_DEV_GUIDE.md): fast contributor workflow for shipping during a hackathon
-- [`docs/design.md`](docs/design.md): architecture boundary and execution model
-- [`docs/security.md`](docs/security.md): threat model and safety rules
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): implementation phases
+Deployed and exercised end to end on July 15, 2026:
 
-## What Exists Today
+- Program: [`EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV`](https://explorer.solana.com/address/EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV?cluster=devnet)
+- Leash PDA: [`B3zeFVxkcagGrhWUcHzY7Xzdpr5mRGBivS7dwW46f9Zy`](https://explorer.solana.com/address/B3zeFVxkcagGrhWUcHzY7Xzdpr5mRGBivS7dwW46f9Zy?cluster=devnet)
+- Vault PDA: [`BTy6fyiZFSVSP8nS4gofsPqkth5zxBkk3hCNkg7Ess8F`](https://explorer.solana.com/address/BTy6fyiZFSVSP8nS4gofsPqkth5zxBkk3hCNkg7Ess8F?cluster=devnet)
+- `create_leash` (0.05 SOL per-tx cap, 0.2 SOL daily cap): [tx](https://explorer.solana.com/tx/33s3t4QjE1FbTK4xByqNpARth4RVFzpNv9s1QxmjuMrZjV6dJ9y9amvL89eckL2PtQ5vhgHVoj5A87zd2nPyiaqZ?cluster=devnet)
+- `set_allowlist` (treasury only): [tx](https://explorer.solana.com/tx/4W5Nmj81fhQwSkgYqgk9BT91HTpjY3XUtae5qrWcnstAoDdt4AEdiQaWnAGbJyjqR2dYXCdPp2TJZZ5naptdBZer?cluster=devnet)
+- `deposit` 0.5 SOL: [tx](https://explorer.solana.com/tx/3MQ8GzRV7dsDZP6nKvEcbjCgrguviQhCunK91rc89PbMzgkWkSKPJ8r58SxaXYBXdDDThTMqJ2iMiwbydN5HHwKR?cluster=devnet)
+- Agent `spend` 0.025 SOL, approved and transferred: [tx](https://explorer.solana.com/tx/5Pt2CWCmRagDJFdtXu7C8LkU1a21AjThQpgCJkGvtjZNkhYkefrsUdMnLDWSQZGVSH7Xr5hXcEBNH5CcdWN4A4Mc?cluster=devnet)
+- `set_halt(true)`: [tx](https://explorer.solana.com/tx/37MKR64c4KMhKPpWHdmfe5VKhToJQ8suRkstTbnmXGMoftpZePpmzZYc7qoVvvmDestnjap5r6f3aidzhx6fMKPa?cluster=devnet) and resume: [tx](https://explorer.solana.com/tx/57kKyMNMg8jc3rLDjH5zC4duTXtCEHckjX3HvNmWPcQnrAeNyNFKNvxHpuJSUsMkyGkckygvMEhdHH39deYjNSgh?cluster=devnet)
+- Demo agent BUY metered through the leash from Python: [tx](https://explorer.solana.com/tx/3c7MQBDXT9CyeuA5rTWb4jq9M9vXo86z66a9Rar69qRsFnaTwVfDfWGfsGe6DtFjmGZ3ZHGM1H5KzvFS2j4bvCrP?cluster=devnet)
 
-- Python agent scaffold with config loading, SQLite schema, local dry-run loop, and a paper-trade executor.
-- FastAPI status API with `GET /health`, `GET /pnl`, `GET /signal/latest`, and `GET /signal/history`.
-- Anchor program for `policy_controller` with daily BUY caps, per-trade BUY caps, monotonic trade sequence, and halt/resume.
-- TypeScript Anchor test scaffold.
-- Pinned devnet scripts for Solana `1.18.17` and Anchor `0.30.1`.
-- Static dashboard shell in [`dashboard/`](dashboard/).
+In the same smoke run, an over-cap spend, a non-allowlisted recipient, and a spend-while-halted were each rejected (`PER_TX_CAP_EXCEEDED`, `RECIPIENT_NOT_ALLOWED`, `LEASH_HALTED`). Those rejections happen at preflight, so they never land on-chain; `npx ts-node scripts/land-rejection.ts` deliberately lands one as a finalized failed transaction if you want explorer-visible proof of enforcement.
 
-## What Does Not Exist Yet
+## Quickstart (against the deployed program)
 
-- Live arXiv and RSS ingestion.
-- Groq-backed scoring and signal generation.
-- Live `anchorpy` integration from the Python executor into the deployed program.
-- x402-paid API routes.
-- A hosted dashboard with real trade history.
+Prereqs: Node 18+, Python 3.11+, and three devnet keypairs under `keys/` (`owner-devnet.json`, `agent-devnet.json`, `treasury-devnet.json`). `scripts/setup-devnet.sh` can generate and fund them.
 
-That separation is deliberate. It keeps the public repo credible while still showing a concrete Solana path.
+```bash
+npm install
+pip install -r requirements.txt
+cp .env.example .env
+
+# owner: create the leash, allowlist the treasury, fund the vault
+npm run devnet:init
+
+# agent: spend within policy (real SOL moves from the vault)
+npm run devnet:spend -- 0.01
+
+# owner: pull the kill switch, watch the agent get blocked, resume
+npm run devnet:halt
+npm run devnet:spend -- 0.01     # -> {"approved":false,"reason":"LEASH_HALTED"}
+npm run devnet:resume
+
+# the full guardrail demonstration in one command
+npm run devnet:smoke
+```
+
+Other bridge commands: `devnet:status`, `devnet:status-json`, `devnet:deposit -- <sol>`, `devnet:withdraw -- <sol>`.
+
+## The Demo Agent
+
+To make the guardrails visible, the repo ships a deliberately untrusted consumer: an autonomous paper-trading agent (arXiv/news ingestion, Groq scoring, signal validation) whose every BUY must clear the leash with a real devnet spend before the paper trade executes. If the chain says no, the trade does not happen — the bridge is fail-closed end to end.
+
+```bash
+# one demo cycle (set ENABLE_DEVNET_LEASH=true in .env for the on-chain path)
+python -m agent.main --init-db --once
+
+# live pipeline (needs GROQ_API_KEY), or --loop for continuous cycles
+python -m agent.main --live
+
+# observability API + dashboard
+uvicorn agent.api.server:app --reload
+# then open dashboard/index.html
+```
+
+The dashboard shows the leash state (vault balance, caps, budget meter, halt state) and every spend with its explorer link, refreshed live.
+
+## Using Leash from Your Own Agent
+
+TypeScript (the bridge in `scripts/devnet-leash.ts` is the reference; the IDL ships in `idl/leash.json`):
+
+```ts
+const idl = JSON.parse(fs.readFileSync("idl/leash.json", "utf8"));
+const program = new anchor.Program(idl, provider);
+await program.methods
+  .spend(new anchor.BN(lamports))
+  .accounts({ leash, agent: agentPubkey, vault, recipient, systemProgram })
+  .signers([agentKeypair])
+  .rpc(); // throws PerTxCapExceeded / DailyCapExceeded / ... when blocked
+```
+
+Python (subprocess bridge, no Rust/Anchor toolchain needed at runtime):
+
+```python
+from agent.trading.leash_client import AnchorLeashClient
+from agent.models import SpendRequest
+
+leash = AnchorLeashClient(rpc_url=..., program_id=..., wallet_path="keys/agent-devnet.json")
+decision = leash.request_spend(SpendRequest(amount_sol=0.01))
+# decision.approved, decision.reason, decision.tx_signature
+```
+
+## Repo Map
+
+- [`programs/leash/`](programs/leash/) — the Anchor program (single ~400-line `lib.rs`, auditable in one sitting)
+- [`idl/leash.json`](idl/leash.json) — committed IDL; regenerate with `npm run gen:idl`
+- [`scripts/devnet-leash.ts`](scripts/devnet-leash.ts) — owner/agent CLI bridge (init, spend, halt, smoke, ...)
+- [`agent/`](agent/) — Python demo agent: ingestion, scoring, paper executor, leash client, FastAPI
+- [`dashboard/`](dashboard/) — static live dashboard over the FastAPI endpoints
+- [`tests/`](tests/) — Python unit tests (109) and the Anchor TypeScript test suite
+- [`docs/`](docs/) — design, security model, roadmap, contributor guide
+
+## Building the Program from Source
+
+You only need this to modify the program; the deployed program plus committed IDL serve every other workflow.
+
+```bash
+cargo build-sbf --manifest-path programs/leash/Cargo.toml   # -> target/deploy/leash.so
+solana program deploy target/deploy/leash.so --program-id target/deploy/leash-keypair.json -u devnet -k keys/owner-devnet.json
+```
+
+Toolchain notes (hard-won, especially on Windows):
+
+- The Solana 1.18 SBF toolchain bundles cargo 1.75, which only reads lockfile v3. Modern host cargo writes v4. If the build complains about the lock file, regenerate it via host `cargo metadata`, then downgrade the header: `sed -i 's/^version = 4$/version = 3/' Cargo.lock`.
+- `anchor build`'s IDL step compiles host-side and is brittle across rustc versions. The repo instead commits the IDL and regenerates it deterministically with `npm run gen:idl` (`scripts/gen-idl.js` mirrors `lib.rs`; discriminators are sha256 prefixes). If you change the program's interface, update both `lib.rs` and `gen-idl.js`.
+- Dependency pins in `programs/leash/Cargo.toml` keep the tree compatible with the SBF toolchain's rustc 1.75. Do not "helpfully" update them.
 
 ## Validation Surface
 
 Verified in the default local workflow:
 
-- Python unit tests
-- TypeScript type-check / test scaffold validation
-- local paper-trade scaffold run path
+- `python -m unittest discover -s tests` — 109 tests
+- `npm run lint:ts` — bridge, scripts, and Anchor tests type-check
+- `npm run devnet:smoke` — live guardrail enforcement against the deployed program
 
-Not part of the default verified path yet:
+Not part of the default verified path:
 
-- `anchor build`
-- `anchor test`
-- live Solana submission from Python
+- `npm run test:anchor` (requires a local validator; the devnet smoke covers the same behavior against the real cluster)
 
-That distinction matters. This repo should never imply that unverified paths are already production-ready.
+## Security Model (short version)
 
-## Architecture
+- Compromised agent key: bounded loss — at most `min(per_tx_cap, remaining daily budget)` per day, only to allowlisted recipients, and the owner can halt instantly.
+- Compromised owner key: game over, as with any ownership system. Keep it cold.
+- The bridge and executor fail closed: any error (RPC down, program missing, malformed output) is a rejection, never an approval.
 
-```
-Research/news -> scoring -> signal validation -> paper-trade executor
-                                              |
-                                              v
-                              policy_controller (Anchor on devnet)
-                                              |
-                                              v
-                                   SQLite + FastAPI + dashboard
-```
+Details and limitations in [`docs/security.md`](docs/security.md). This is devnet software; it has not been audited.
 
-The security boundary for the MVP is the Anchor policy controller. It does not custody funds. It approves or rejects paper trades before the local portfolio mutates.
+## Origin
 
-## Quick Start
-
-### 1. Local scaffold
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-python -m agent.main --init-db --once
-uvicorn agent.api.server:app --reload
-```
-
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-Copy-Item .env.example .env
-```
-
-Local mode uses a policy simulator with the same limit model as the Anchor program. It is there so contributors can work on the agent without needing Solana installed first.
-
-### 2. Devnet prerequisites
-
-Use these exact toolchain targets for the current scaffold:
-
-- Solana CLI `1.18.17`
-- Anchor CLI `0.30.1`
-- Rust stable toolchain
-- Node.js `20.x` LTS recommended for Anchor tooling
-- `pip install -r requirements-devnet.txt` for Python-side Anchor / Solana client work
-- `pip install -r requirements-x402.txt` in a separate virtualenv for x402 SVM route experiments
-
-For Windows, the official Solana and Anchor docs still point to WSL2 first. PowerShell wrappers are included in `scripts/setup-devnet.ps1` and `scripts/deploy.ps1` for native Windows setups that already have the Solana and Anchor binaries on `PATH`, but `anchor build` still needs a supported backend such as Docker Desktop. On this host, the native Windows preflight remains blocked until Docker Desktop or WSL2 is installed.
-
-As of April 4, 2026, `anchorpy==0.21.0` and `x402[svm]==2.3.0` resolve against different `solders` and `construct-typing` ranges, so this repo keeps those install paths separate instead of publishing a broken one-command setup.
-
-### 3. Devnet policy deployment
-
-```bash
-bash scripts/setup-devnet.sh
-bash scripts/preflight-anchor.sh
-bash scripts/deploy.sh
-anchor test
-```
-
-Windows PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
-powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
-powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
-anchor test
-```
-
-The Python executor is not yet wired to submit Anchor transactions. The on-chain program is ready first; the client integration is the next implementation step.
-
-`preflight-anchor` is the required gate before Anchor build and test. It checks:
-
-- Anchor CLI version alignment
-- build backend availability
-- local program-keypair / program-id consistency
-
-If `anchor build` fails on native Windows with the vague message `program not found`, treat that as a build-backend failure first. In practice that usually means Docker Desktop is not installed or not reachable from Anchor.
-
-## Tests
-
-Run the current local checks with:
-
-```bash
-python -m unittest discover -s tests -v
-cmd /c npm run lint:ts
-```
-
-Once the Solana and Anchor toolchain is installed, add:
-
-```bash
-bash scripts/preflight-anchor.sh
-anchor test
-```
-
-At the moment, the repo should be described as:
-
-- Python-test green
-- TypeScript-check green
-- Anchor source and tests scaffolded, but not part of the default green path yet
-
-If you change behavior, the expectation is to verify the relevant path directly, not just assume the existing scaffold still holds.
-
-## Repo Layout
-
-```text
-QubitAlpha/
-|-- AGENT.md                    # contributor / coding-agent guide
-|-- agent/                      # Python scaffold
-|-- dashboard/                  # static dashboard shell
-|-- docs/                       # docs index, roadmap, security, hackathon guide
-|-- programs/policy_controller/ # Anchor program
-|-- scripts/                    # devnet setup and deploy helpers
-`-- tests/                      # Python + Anchor tests
-```
-
-## Public Roadmap
-
-### Phase 1
-
-- Replace demo trades with live ingestion and scoring.
-- Add real signal generation and validation rules.
-- Persist richer P&L snapshots.
-
-### Phase 2
-
-- Wire the Python executor to the deployed Anchor program with `anchorpy`.
-- Run Anchor tests on local validator and devnet.
-- Add explorer links and on-chain state reads to the API.
-
-### Phase 3
-
-- Enable x402 paid routes on devnet.
-- Replace the static dashboard with a live frontend.
-- Publish demo material and CI.
-
-Full details are in [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Why The Scope Is Tight
-
-If the goal is a credible open-source repo that can earn stars, the MVP has to be small enough to be true. Right now the repo is centered on one strong demo:
-
-"A paper-trading research agent whose paper trades are guarded by a Solana devnet policy program."
-
-That is easier to understand, easier to verify, and easier to extend than a repo that claims a full agent economy before the first vertical slice is working.
-
-## Contributing
-
-Useful contribution areas:
-
-- Real fetchers in `agent/ingestion/`
-- Groq scoring in `agent/scoring/`
-- `anchorpy` policy submission in `agent/trading/policy_client.py`
-- x402 integration in `agent/api/server.py`
-- Dashboard polish in `dashboard/`
-
-Contribution standard:
-
-- keep changes narrow and reviewable
-- test the code path you touched
-- do not overstate what is implemented
-- document sharp edges and blockers plainly
-- treat data flow, policy enforcement, and deployment behavior with senior-level caution
-
-A GitHub Actions workflow is included for Python tests and TypeScript type-checking so the repo can show basic health without requiring Solana tooling on every CI run.
+Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Git history preserves the whole journey.
 
 ## License
 
-[MIT](LICENSE)
+MIT

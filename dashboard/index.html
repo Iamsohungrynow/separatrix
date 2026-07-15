@@ -3,38 +3,246 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>QubitAlpha Dashboard</title>
+    <meta name="color-scheme" content="light" />
+    <title>leash.ipynb</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">QubitAlpha</p>
-        <h1>Research-driven paper trading, with Solana in the control loop.</h1>
-        <p class="lede">
-          This dashboard shell reads from the local FastAPI server. It is intentionally minimal until the live
-          agent loop and devnet integration are finished.
-        </p>
+  <body data-state="loading">
+    <main class="nb">
+      <!-- notebook toolbar -->
+      <div class="nb-toolbar">
+        <span class="nb-file">
+          <span class="nb-file-mark" aria-hidden="true"></span>leash.ipynb
+        </span>
+        <div class="nb-right">
+          <span class="kernel" role="status" aria-live="polite">
+            <span class="klabel">kernel:</span>
+            <span class="dot" id="conn-dot" data-state="loading" aria-hidden="true"></span>
+            <span class="conn-text" id="conn-text">starting</span>
+          </span>
+          <div class="metas">
+            <div class="meta"><span class="m-k">cycle</span><span class="m-v skel" id="m-cycle">--</span></div>
+            <div class="meta"><span class="m-k">seq</span><span class="m-v skel" id="m-seq">--</span></div>
+            <div class="meta"><span class="m-k">mode</span><span class="m-v skel" id="m-mode">--</span></div>
+            <div class="meta"><span class="m-k">net</span><span class="m-v skel" id="m-net">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- markdown title cell -->
+      <section class="cell cell-md reveal" style="--i: 0">
+        <div class="row">
+          <div class="gutter"></div>
+          <div class="cell-main md">
+            <h1 class="md-h1">Leash</h1>
+            <p class="md-p">
+              On-chain spending guardrails for AI agents on Solana. Below, an autonomous
+              demo agent trades on research signals &mdash; but every buy must clear the
+              Leash program on devnet first: per-transaction cap, daily budget, recipient
+              allowlist, and an owner kill switch the agent cannot override.
+              This notebook re-runs against the live agent every 30 seconds.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section class="grid">
-        <article class="card">
-          <p class="label">Agent Status</p>
-          <h2 id="status">Waiting for API</h2>
-          <p id="last-cycle" class="muted">No cycle recorded yet.</p>
-        </article>
+      <!-- In[1] portfolio -->
+      <section class="cell reveal" style="--i: 1">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [1]:</span></div>
+          <pre class="source"><code><span class="t-ob">portfolio</span><span class="t-op">.</span><span class="t-fn">snapshot</span><span class="t-op">()</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[1]:</span></div>
+          <div class="output">
+            <div class="kpis">
+              <div class="kpi" id="kpi-portfolio">
+                <p class="k-label">portfolio_value</p>
+                <div class="k-value skel" id="v-portfolio">--</div>
+                <p class="k-sub" id="s-portfolio">marked to last price</p>
+              </div>
+              <div class="kpi" id="kpi-cash">
+                <p class="k-label">paper_cash</p>
+                <div class="k-value skel" id="v-cash">--</div>
+                <p class="k-sub">USDC, simulated</p>
+              </div>
+              <div class="kpi" id="kpi-unrealized">
+                <p class="k-label">unrealized_pnl</p>
+                <div class="k-value skel" id="v-unrealized">--</div>
+                <p class="k-sub">open positions</p>
+              </div>
+              <div class="kpi" id="kpi-realized">
+                <p class="k-label">realized_pnl</p>
+                <div class="k-value skel" id="v-realized">--</div>
+                <p class="k-sub">booked to date</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <article class="card">
-          <p class="label">Paper Cash</p>
-          <h2 id="cash">$0.00</h2>
-          <p id="pnl" class="muted">No P&amp;L snapshot yet.</p>
-        </article>
+      <!-- In[2] latest signal -->
+      <section class="cell reveal" style="--i: 2">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [2]:</span></div>
+          <pre class="source"><code><span class="t-ob">agent</span><span class="t-op">.</span><span class="t-fn">latest_signal</span><span class="t-op">()</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[2]:</span></div>
+          <div class="output">
+            <div class="sig-head">
+              <span class="signal-asset skel" id="sig-asset">--</span>
+              <span class="pill other" id="sig-action">WAITING</span>
+              <span class="cap-note" id="signal-time">--</span>
+            </div>
+            <div class="signal-meters">
+              <div class="metric">
+                <div class="m-top">
+                  <span class="m-name">sentiment</span>
+                  <span class="m-num" id="sig-sentiment">--</span>
+                </div>
+                <div class="meter"><i id="bar-sentiment"></i></div>
+              </div>
+              <div class="metric">
+                <div class="m-top">
+                  <span class="m-name">confidence</span>
+                  <span class="m-num" id="sig-confidence">--</span>
+                </div>
+                <div class="meter"><i id="bar-confidence"></i></div>
+              </div>
+            </div>
+            <p class="sig-reasoning" id="sig-reasoning">Run `python -m agent.main --init-db --once` to seed the local demo, then start the API.</p>
+          </div>
+        </div>
+      </section>
 
-        <article class="card wide">
-          <p class="label">Latest Signal</p>
-          <h2 id="signal">No signal yet</h2>
-          <p id="signal-reasoning" class="muted">Run `python -m agent.main --init-db --once` to seed the local demo.</p>
-        </article>
+      <!-- In[3] policy -->
+      <section class="cell reveal" style="--i: 3">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [3]:</span></div>
+          <pre class="source"><code><span class="t-ob">leash</span><span class="t-op">.</span><span class="t-fn">status</span><span class="t-op">()</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[3]:</span></div>
+          <div class="output">
+            <div class="policy-state">
+              <span class="dot" id="policy-dot" data-state="loading" aria-hidden="true"></span>
+              <span class="skel" id="policy-state-text">starting</span>
+              <span class="tag" id="policy-mode-tag">on-chain guardrail</span>
+            </div>
+            <div class="rows" id="policy-rows">
+              <div class="row-kv"><span class="r-k">status</span><span class="r-v">waiting for the leash endpoint</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- In[4] positions -->
+      <section class="cell reveal" style="--i: 4">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [4]:</span></div>
+          <pre class="source"><code><span class="t-ob">portfolio</span><span class="t-op">.</span><span class="t-fn">positions</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[4]:</span></div>
+          <div class="output">
+            <div class="table-wrap">
+              <table class="data-table" id="positions-table">
+                <thead>
+                  <tr>
+                    <th>asset</th>
+                    <th class="num">quantity</th>
+                    <th class="num">avg_cost</th>
+                    <th>updated</th>
+                  </tr>
+                </thead>
+                <tbody id="positions-body">
+                  <tr><td colspan="4" class="t-empty">No open positions.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="df-cap" id="positions-count"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- In[5] signal history -->
+      <section class="cell reveal" style="--i: 5">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [5]:</span></div>
+          <pre class="source"><code><span class="t-ob">signals</span><span class="t-op">.</span><span class="t-fn">history</span><span class="t-op">(</span><span class="t-arg">limit</span><span class="t-op">=</span><span class="t-num">20</span><span class="t-op">)</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[5]:</span></div>
+          <div class="output">
+            <div class="table-wrap">
+              <table class="data-table" id="signals-table">
+                <thead>
+                  <tr>
+                    <th>time</th>
+                    <th>asset</th>
+                    <th>action</th>
+                    <th class="num">sentiment</th>
+                    <th class="num">confidence</th>
+                    <th class="num">size</th>
+                    <th>validated</th>
+                  </tr>
+                </thead>
+                <tbody id="signals-body">
+                  <tr><td colspan="7" class="t-empty">No signals recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="df-cap" id="signals-count"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- In[6] trades -->
+      <section class="cell reveal" style="--i: 6">
+        <div class="row in-row">
+          <div class="gutter"><span class="prompt in">In [6]:</span></div>
+          <pre class="source"><code><span class="t-ob">trades</span><span class="t-op">.</span><span class="t-fn">history</span><span class="t-op">(</span><span class="t-arg">limit</span><span class="t-op">=</span><span class="t-num">20</span><span class="t-op">)</span></code></pre>
+        </div>
+        <div class="row out-row">
+          <div class="gutter"><span class="prompt out">Out[6]:</span></div>
+          <div class="output">
+            <div class="table-wrap">
+              <table class="data-table" id="trades-table">
+                <thead>
+                  <tr>
+                    <th>time</th>
+                    <th>asset</th>
+                    <th>action</th>
+                    <th class="num">quantity</th>
+                    <th class="num">price</th>
+                    <th class="num">amount</th>
+                    <th class="num">realized_pnl</th>
+                    <th>tx</th>
+                  </tr>
+                </thead>
+                <tbody id="trades-body">
+                  <tr><td colspan="8" class="t-empty">No trades recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="df-cap" id="trades-count"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- closing markdown cell -->
+      <section class="cell cell-md reveal" style="--i: 7">
+        <div class="row">
+          <div class="gutter"></div>
+          <div class="cell-main md colophon">
+            <span>Paper trades; the buy budget is enforced on-chain.</span>
+            <span class="sep" aria-hidden="true"></span>
+            <span>leash program <span id="footer-prog">not loaded</span></span>
+            <span class="sep" aria-hidden="true"></span>
+            <span>Solana devnet</span>
+          </div>
+        </div>
       </section>
     </main>
 

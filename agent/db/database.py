@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from agent.models import Position, Signal, utc_now_iso
 
@@ -13,16 +14,38 @@ class Database:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path, check_same_thread=False)
+        self.connection.execute("PRAGMA foreign_keys=ON")
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.row_factory = sqlite3.Row
+        self._transaction_depth = 0
 
     def initialize(self) -> None:
         schema_path = Path(__file__).with_name("schema.sql")
         self.connection.executescript(schema_path.read_text(encoding="utf-8"))
-        self.connection.commit()
+        self._commit()
 
     def close(self) -> None:
         self.connection.close()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        is_outer = self._transaction_depth == 0
+        self._transaction_depth += 1
+        try:
+            yield
+        except Exception:
+            self._transaction_depth -= 1
+            if is_outer:
+                self.connection.rollback()
+            raise
+        else:
+            self._transaction_depth -= 1
+            if is_outer:
+                self.connection.commit()
+
+    def _commit(self) -> None:
+        if self._transaction_depth == 0:
+            self.connection.commit()
 
     def _set_meta(self, key: str, value: str) -> None:
         self.connection.execute(
@@ -32,7 +55,7 @@ class Database:
             """,
             (key, value),
         )
-        self.connection.commit()
+        self._commit()
 
     def _get_meta(self, key: str, default: str | None = None) -> str | None:
         row = self.connection.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
@@ -85,13 +108,95 @@ class Database:
             """,
             (position.asset, position.quantity, position.avg_cost, utc_now_iso()),
         )
-        self.connection.commit()
+        self._commit()
 
     def list_positions(self) -> list[dict[str, Any]]:
         rows = self.connection.execute(
             "SELECT asset, quantity, avg_cost, updated_at FROM positions ORDER BY asset"
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def upsert_raw_item(self, item: dict[str, Any]) -> int:
+        self.connection.execute(
+            """
+            INSERT INTO raw_items (
+                source,
+                url,
+                url_hash,
+                title,
+                content,
+                published_at,
+                fetched_at,
+                metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(url_hash) DO UPDATE SET
+                source = excluded.source,
+                url = excluded.url,
+                title = excluded.title,
+                content = excluded.content,
+                published_at = excluded.published_at,
+                fetched_at = excluded.fetched_at,
+                metadata = excluded.metadata
+            """,
+            (
+                item["source"],
+                item["url"],
+                item["url_hash"],
+                item["title"],
+                item.get("content", ""),
+                item.get("published_at", ""),
+                item["fetched_at"],
+                item.get("metadata", "{}"),
+            ),
+        )
+        self._commit()
+        row = self.connection.execute(
+            "SELECT id FROM raw_items WHERE url_hash = ?",
+            (item["url_hash"],),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("raw item upsert did not return a row")
+        return int(row["id"])
+
+    def upsert_raw_items(self, items: list[dict[str, Any]]) -> list[int]:
+        return [self.upsert_raw_item(item) for item in items]
+
+    def insert_score(self, raw_item_id: int, score: dict[str, Any]) -> int:
+        cursor = self.connection.execute(
+            """
+            INSERT INTO scores (
+                raw_item_id,
+                asset,
+                sentiment,
+                confidence,
+                reasoning,
+                model,
+                scored_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                raw_item_id,
+                str(score.get("asset", "")),
+                float(score.get("sentiment", 0.0)),
+                float(score.get("confidence", 0.0)),
+                str(score.get("reasoning", "")),
+                str(score.get("model", "unknown")),
+                str(score.get("scored_at", utc_now_iso())),
+            ),
+        )
+        self._commit()
+        return int(cursor.lastrowid)
+
+    def insert_scores(self, raw_item_ids: list[int], scores: list[dict[str, Any]]) -> list[int]:
+        score_ids: list[int] = []
+        for score in scores:
+            try:
+                item_index = int(score.get("item_index", -1))
+            except (TypeError, ValueError):
+                continue
+            if 0 <= item_index < len(raw_item_ids):
+                score_ids.append(self.insert_score(raw_item_id=raw_item_ids[item_index], score=score))
+        return score_ids
 
     def insert_signal(self, signal: Signal, devnet_tx: str | None = None) -> int:
         cursor = self.connection.execute(
@@ -124,7 +229,7 @@ class Database:
                 signal.timestamp,
             ),
         )
-        self.connection.commit()
+        self._commit()
         return int(cursor.lastrowid)
 
     def record_trade(
@@ -164,7 +269,7 @@ class Database:
                 utc_now_iso(),
             ),
         )
-        self.connection.commit()
+        self._commit()
 
     def record_pnl(self, total_value_usdc: float, unrealized_pnl: float, realized_pnl: float) -> None:
         self.connection.execute(
@@ -174,7 +279,7 @@ class Database:
             """,
             (total_value_usdc, unrealized_pnl, realized_pnl, utc_now_iso()),
         )
-        self.connection.commit()
+        self._commit()
 
     def latest_pnl(self, starting_cash_usdc: float) -> dict[str, Any]:
         row = self.connection.execute(
@@ -210,6 +315,19 @@ class Database:
             (limit,),
         ).fetchall()
         return [self._decode_signal_row(row) for row in rows]
+
+    def trade_history(self, limit: int = 20) -> list[dict[str, Any]]:
+        rows = self.connection.execute(
+            """
+            SELECT id, signal_id, asset, action, amount_usdc, price_usdc,
+                   quantity, realized_pnl, tx_signature, executed_at
+            FROM trades
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def health_snapshot(self, network: str, policy_mode: str) -> dict[str, Any]:
         return {

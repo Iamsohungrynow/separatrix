@@ -3,11 +3,12 @@ from __future__ import annotations
 import shutil
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from agent.db.database import Database
 from agent.models import Signal
 from agent.trading.executor import PaperTradeExecutor
-from agent.trading.policy_client import LocalPolicyClient
+from agent.trading.leash_client import LocalLeashClient
 
 
 class ExecutorTestCase(unittest.TestCase):
@@ -22,10 +23,9 @@ class ExecutorTestCase(unittest.TestCase):
 
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -64,10 +64,9 @@ class ExecutorTestCase(unittest.TestCase):
 
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -110,6 +109,120 @@ class ExecutorTestCase(unittest.TestCase):
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
+    def test_buy_mutation_rolls_back_if_sequence_update_fails(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_executor_buy_rollback"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+        database.ensure_cash(1000.0)
+        executor = PaperTradeExecutor(
+            db=database,
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
+            ),
+            starting_cash_usdc=1000.0,
+        )
+
+        with patch.object(database, "set_next_trade_sequence", side_effect=RuntimeError("sequence write failed")):
+            with self.assertRaises(RuntimeError):
+                executor.execute(
+                    Signal(
+                        asset="SOL",
+                        action="BUY",
+                        sentiment=0.8,
+                        confidence=0.8,
+                        position_size_usdc=10.0,
+                        reasoning="rollback buy",
+                    ),
+                    price_usdc=10.0,
+                )
+
+        latest_signal = database.latest_signal()
+        trades = database.trade_history()
+        pnl = database.latest_pnl(1000.0)
+        position = database.get_position("SOL")
+        cash = database.get_cash(1000.0)
+        next_sequence = database.get_next_trade_sequence()
+        database.close()
+
+        self.assertIsNone(latest_signal)
+        self.assertEqual(trades, [])
+        self.assertIsNone(pnl["recorded_at"])
+        self.assertAlmostEqual(position.quantity, 0.0)
+        self.assertAlmostEqual(cash, 1000.0)
+        self.assertEqual(next_sequence, 1)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_sell_mutation_rolls_back_if_sequence_update_fails(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_executor_sell_rollback"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+        database.ensure_cash(1000.0)
+        executor = PaperTradeExecutor(
+            db=database,
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
+            ),
+            starting_cash_usdc=1000.0,
+        )
+        seed = executor.execute(
+            Signal(
+                asset="SOL",
+                action="BUY",
+                sentiment=0.8,
+                confidence=0.8,
+                position_size_usdc=10.0,
+                reasoning="seed",
+            ),
+            price_usdc=10.0,
+        )
+        self.assertTrue(seed.approved)
+        pre_cash = database.get_cash(1000.0)
+        pre_position = database.get_position("SOL")
+        pre_pnl = database.latest_pnl(1000.0)
+        pre_sequence = database.get_next_trade_sequence()
+
+        with patch.object(database, "set_next_trade_sequence", side_effect=RuntimeError("sequence write failed")):
+            with self.assertRaises(RuntimeError):
+                executor.execute(
+                    Signal(
+                        asset="SOL",
+                        action="SELL",
+                        sentiment=-0.8,
+                        confidence=0.8,
+                        position_size_usdc=5.0,
+                        reasoning="rollback sell",
+                    ),
+                    price_usdc=12.0,
+                )
+
+        history = database.signal_history(limit=10)
+        trades = database.trade_history(limit=10)
+        post_cash = database.get_cash(1000.0)
+        post_position = database.get_position("SOL")
+        post_pnl = database.latest_pnl(1000.0)
+        post_sequence = database.get_next_trade_sequence()
+        database.close()
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(len(trades), 1)
+        self.assertAlmostEqual(post_cash, pre_cash)
+        self.assertAlmostEqual(post_position.quantity, pre_position.quantity)
+        self.assertAlmostEqual(post_position.avg_cost, pre_position.avg_cost)
+        self.assertEqual(post_pnl["recorded_at"], pre_pnl["recorded_at"])
+        self.assertAlmostEqual(post_pnl["realized_pnl"], pre_pnl["realized_pnl"])
+        self.assertEqual(post_sequence, pre_sequence)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
     def test_precheck_rejections_do_not_consume_sequence(self) -> None:
         case_dir = Path(".tmp-tests") / "test_executor_prechecks"
         shutil.rmtree(case_dir, ignore_errors=True)
@@ -118,12 +231,8 @@ class ExecutorTestCase(unittest.TestCase):
         database = Database(case_dir / "state.db")
         database.initialize()
         database.ensure_cash(5.0)
-        policy = LocalPolicyClient(
-            daily_buy_limit_usdc=10.0,
-            per_trade_buy_limit_usdc=5.0,
-            starting_sequence=database.get_next_trade_sequence(),
-        )
-        executor = PaperTradeExecutor(db=database, policy_client=policy, starting_cash_usdc=5.0)
+        leash = LocalLeashClient(per_tx_cap_sol=0.005, daily_cap_sol=0.01)
+        executor = PaperTradeExecutor(db=database, leash_client=leash, starting_cash_usdc=5.0)
 
         insufficient_cash = executor.execute(
             Signal(
@@ -202,10 +311,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(100.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=100.0,
         )
@@ -235,7 +343,7 @@ class ExecutorTestCase(unittest.TestCase):
         next_sequence = database.get_next_trade_sequence()
         database.close()
 
-        self.assertEqual(rejected.reason, "TRADE_TOO_BIG")
+        self.assertEqual(rejected.reason, "PER_TX_CAP_EXCEEDED")
         self.assertTrue(approved.approved)
         self.assertEqual(approved.tx_signature, "LOCAL-000001")
         self.assertEqual(next_sequence, 2)
@@ -252,10 +360,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(100.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=100.0,
         )
@@ -300,10 +407,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(1000.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )

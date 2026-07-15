@@ -1,4 +1,4 @@
-"""QubitAlpha Python scaffold."""
+"""Leash demo agent scaffold."""
 
 __all__ = ["__version__"]
 

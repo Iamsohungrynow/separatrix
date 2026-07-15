@@ -18,6 +18,8 @@ anchor deploy --provider.cluster devnet
 cat <<EOF
 Anchor deploy completed.
 
-Replace POLICY_CONTROLLER_PROGRAM_ID in .env with the deployed program id.
-Then initialize the policy PDA before wiring the Python client.
+Verify LEASH_PROGRAM_ID in .env matches the deployed program id.
+Then run:
+  bash scripts/init-leash.sh
+  bash scripts/smoke-devnet.sh
 EOF

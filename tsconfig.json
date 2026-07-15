@@ -8,5 +8,5 @@
     "types": ["mocha", "node"],
     "skipLibCheck": true
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts", "scripts/**/*.ts"]
 }
