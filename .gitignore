@@ -21,6 +21,8 @@ data/
 .tools/
 .publish-clone/
 .publish-push/
+.publish-sync/
+.publish-docs/
 pytest-cache-files-*/
 
 # Anchor / Solana build artifacts
@@ -47,9 +49,6 @@ dashboard/node_modules/
 
 # Anchor version manager
 .avm-home/
-
-# Publish docs snapshot
-.publish-docs/
 
 # Log files
 *.log
