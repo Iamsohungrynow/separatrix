@@ -18,7 +18,7 @@ This roadmap tracks the code that actually exists in the repository, not a visio
 - [ ] Publish the TypeScript client as a small npm package (`@leash/sdk`): create/spend/halt/status without this repo
 - [ ] Native `anchorpy` client to replace the subprocess bridge for Python consumers
 - [ ] `close_leash` instruction (reclaim rent, retire an agent)
-- [ ] Owner web UI: create a leash, set caps, halt from a wallet-adapter page (no CLI)
+- [x] Owner web UI: create a leash, set caps, halt from a wallet-adapter page (no CLI) — `dashboard/owner.html`, encoder verified against Anchor via `npm run verify:owner-ix`
 - [ ] Anchor test run wired into CI against a local validator
 
 ## Phase 2: Richer Policy
