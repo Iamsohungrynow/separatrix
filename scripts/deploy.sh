@@ -18,8 +18,8 @@ anchor deploy --provider.cluster devnet
 cat <<EOF
 Anchor deploy completed.
 
-Verify POLICY_CONTROLLER_PROGRAM_ID in .env matches the deployed program id.
+Verify LEASH_PROGRAM_ID in .env matches the deployed program id.
 Then run:
-  bash scripts/init-policy.sh
+  bash scripts/init-leash.sh
   bash scripts/smoke-devnet.sh
 EOF

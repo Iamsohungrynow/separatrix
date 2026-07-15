@@ -28,7 +28,7 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-keypair_path="${repo_root}/target/deploy/policy_controller-keypair.json"
+keypair_path="${repo_root}/target/deploy/leash-keypair.json"
 if [[ ! -f "${keypair_path}" ]]; then
   (
     cd "${repo_root}"
@@ -42,7 +42,7 @@ if [[ ! -f "${keypair_path}" ]]; then
 fi
 
 pubkey="$(solana-keygen pubkey "${keypair_path}")"
-declared_program_id="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' "${repo_root}/programs/policy_controller/src/lib.rs" | head -n 1)"
+declared_program_id="$(sed -n 's/.*declare_id!("\([^"]*\)").*/\1/p' "${repo_root}/programs/leash/src/lib.rs" | head -n 1)"
 
 readarray -t anchor_toml_program_ids < <(awk '
   /^\[programs\.(localnet|devnet)\]/ {
@@ -54,14 +54,14 @@ readarray -t anchor_toml_program_ids < <(awk '
   /^\[/ {
     current_network = ""
   }
-  current_network != "" && $1 == "policy_controller" {
+  current_network != "" && $1 == "leash" {
     gsub(/"/, "", $3)
     print current_network ":" $3
   }
 ' "${repo_root}/Anchor.toml")
 
 if [[ -n "${declared_program_id}" && "${declared_program_id}" != "${pubkey}" ]]; then
-  echo "Program id mismatch in programs/policy_controller/src/lib.rs. declare_id! uses ${declared_program_id} but ${keypair_path} resolves to ${pubkey}. Run \`anchor keys sync\` locally before build/test." >&2
+  echo "Program id mismatch in programs/leash/src/lib.rs. declare_id! uses ${declared_program_id} but ${keypair_path} resolves to ${pubkey}. Run \`anchor keys sync\` locally before build/test." >&2
   exit 1
 fi
 
@@ -69,7 +69,7 @@ for entry in "${anchor_toml_program_ids[@]}"; do
   network="${entry%%:*}"
   program_id="${entry#*:}"
   if [[ -n "${program_id}" && "${program_id}" != "${pubkey}" ]]; then
-    echo "Program id mismatch in Anchor.toml. [programs.${network}].policy_controller is ${program_id} but ${keypair_path} resolves to ${pubkey}. Run \`anchor keys sync\` locally before build/test." >&2
+    echo "Program id mismatch in Anchor.toml. [programs.${network}].leash is ${program_id} but ${keypair_path} resolves to ${pubkey}. Run \`anchor keys sync\` locally before build/test." >&2
     exit 1
   fi
 done

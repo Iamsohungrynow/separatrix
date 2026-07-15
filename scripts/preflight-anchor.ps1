@@ -35,7 +35,7 @@ function Add-LocalToolchainPath {
 }
 
 function Get-DeclaredProgramId {
-    $libPath = Join-Path $RepoRoot "programs\policy_controller\src\lib.rs"
+    $libPath = Join-Path $RepoRoot "programs\leash\src\lib.rs"
     if (-not (Test-Path $libPath)) {
         return $null
     }
@@ -58,7 +58,7 @@ function Get-AnchorTomlProgramIds {
     $content = Get-Content $anchorToml -Raw
     $ids = @{}
     foreach ($network in @("localnet", "devnet")) {
-        $match = [regex]::Match($content, "(?ms)\[programs\.$network\].*?policy_controller\s*=\s*`"([^`"]+)`"")
+        $match = [regex]::Match($content, "(?ms)\[programs\.$network\].*?leash\s*=\s*`"([^`"]+)`"")
         if ($match.Success) {
             $ids[$network] = $match.Groups[1].Value
         }
@@ -67,7 +67,7 @@ function Get-AnchorTomlProgramIds {
 }
 
 function Ensure-ProgramKeypair {
-    $keypairPath = Join-Path $RepoRoot "target\deploy\policy_controller-keypair.json"
+    $keypairPath = Join-Path $RepoRoot "target\deploy\leash-keypair.json"
     if (-not (Test-Path $keypairPath)) {
         Push-Location $RepoRoot
         try {
@@ -120,7 +120,7 @@ if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
 if ((Get-Command "anchor" -ErrorAction SilentlyContinue) -and (Get-Command "solana-keygen" -ErrorAction SilentlyContinue)) {
     $keypairPath = Ensure-ProgramKeypair
     if ($null -eq $keypairPath) {
-        $issues.Add("Missing target/deploy/policy_controller-keypair.json. Run anchor keys list or generate the program keypair before build/test.")
+        $issues.Add("Missing target/deploy/leash-keypair.json. Run anchor keys list or generate the program keypair before build/test.")
     }
     else {
         $pubkey = (& solana-keygen pubkey $keypairPath).Trim()
@@ -128,13 +128,13 @@ if ((Get-Command "anchor" -ErrorAction SilentlyContinue) -and (Get-Command "sola
         $anchorTomlProgramIds = Get-AnchorTomlProgramIds
 
         if ($declaredProgramId -and $declaredProgramId -ne $pubkey) {
-            $issues.Add("Program id mismatch in programs/policy_controller/src/lib.rs. declare_id! uses $declaredProgramId but target/deploy/policy_controller-keypair.json resolves to $pubkey. Run anchor keys sync locally before build/test.")
+            $issues.Add("Program id mismatch in programs/leash/src/lib.rs. declare_id! uses $declaredProgramId but target/deploy/leash-keypair.json resolves to $pubkey. Run anchor keys sync locally before build/test.")
         }
 
         foreach ($network in $anchorTomlProgramIds.Keys) {
             $programId = $anchorTomlProgramIds[$network]
             if ($programId -and $programId -ne $pubkey) {
-                $issues.Add("Program id mismatch in Anchor.toml. [programs.$network].policy_controller is $programId but target/deploy/policy_controller-keypair.json resolves to $pubkey. Run anchor keys sync locally before build/test.")
+                $issues.Add("Program id mismatch in Anchor.toml. [programs.$network].leash is $programId but target/deploy/leash-keypair.json resolves to $pubkey. Run anchor keys sync locally before build/test.")
             }
         }
     }
