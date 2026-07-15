@@ -32,15 +32,16 @@ class PaperTradeExecutor:
         if not decision.approved:
             return ExecutionResult(approved=False, reason=decision.reason, tx_signature=decision.tx_signature)
 
-        if signal.action == "BUY":
-            result = self._execute_buy(signal, price_usdc, decision.tx_signature)
-        elif signal.action == "SELL":
-            result = self._execute_sell(signal, price_usdc, decision.tx_signature)
-        else:
-            return ExecutionResult(approved=False, reason=f"UNSUPPORTED_ACTION:{signal.action}")
+        with self.db.transaction():
+            if signal.action == "BUY":
+                result = self._execute_buy(signal, price_usdc, decision.tx_signature)
+            elif signal.action == "SELL":
+                result = self._execute_sell(signal, price_usdc, decision.tx_signature)
+            else:
+                return ExecutionResult(approved=False, reason=f"UNSUPPORTED_ACTION:{signal.action}")
 
-        if result.approved:
-            self.db.set_next_trade_sequence(sequence + 1)
+            if result.approved:
+                self.db.set_next_trade_sequence(sequence + 1)
 
         return result
 

@@ -41,17 +41,18 @@ Implemented and testable today:
 
 - local Python scaffold
 - SQLite-backed paper portfolio state
+- live arXiv/RSS ingestion, price fetchers, Groq scoring, signal generation, and validation
+- raw item and score persistence for live cycles
 - local policy simulator
 - FastAPI observability endpoints
 - Anchor policy controller source and TypeScript test scaffold
+- fail-closed devnet policy submission through the Anchor TypeScript command bridge
 
 Not wired yet:
 
-- live ingestion
-- live LLM scoring
-- `anchorpy` trade submission
+- native `anchorpy` trade submission
 - x402 payment flow
-- production dashboard
+- hosted production dashboard
 
 Do not write docs or commit messages that imply those pieces already work.
 

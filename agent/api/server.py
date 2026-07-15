@@ -5,6 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent.config import Settings
 from agent.db.database import Database
+from agent.trading.policy_client import AnchorPolicyClient
+
+
+def _explorer_address(address: str) -> str:
+    return f"https://explorer.solana.com/address/{address}?cluster=devnet"
+
+
+def _explorer_tx(signature: str | None) -> str | None:
+    if not signature or signature.startswith("LOCAL-"):
+        return None
+    return f"https://explorer.solana.com/tx/{signature}?cluster=devnet"
 
 
 def create_app(
@@ -27,7 +38,33 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, object]:
         policy_mode = "devnet-anchor" if current_settings.enable_devnet_policy else "local-simulator"
-        return current_database.health_snapshot(network=current_settings.solana_network, policy_mode=policy_mode)
+        payload = current_database.health_snapshot(network=current_settings.solana_network, policy_mode=policy_mode)
+        payload["policy_program_id"] = current_settings.policy_controller_program_id
+        payload["policy_program_explorer_url"] = _explorer_address(current_settings.policy_controller_program_id)
+        return payload
+
+    @app.get("/policy")
+    def policy() -> dict[str, object]:
+        policy_mode = "devnet-anchor" if current_settings.enable_devnet_policy else "local-simulator"
+        payload: dict[str, object] = {
+            "network": current_settings.solana_network,
+            "policy_mode": policy_mode,
+            "devnet_policy_enabled": current_settings.enable_devnet_policy,
+            "program_id": current_settings.policy_controller_program_id,
+            "program_explorer_url": _explorer_address(current_settings.policy_controller_program_id),
+        }
+
+        if not current_settings.enable_devnet_policy:
+            payload["on_chain"] = None
+            return payload
+
+        client = AnchorPolicyClient(
+            rpc_url=current_settings.solana_rpc_url,
+            program_id=current_settings.policy_controller_program_id,
+            wallet_path=current_settings.agent_wallet_path,
+        )
+        payload["on_chain"] = client.policy_status()
+        return payload
 
     @app.get("/pnl")
     def pnl() -> dict[str, object]:
@@ -43,6 +80,14 @@ def create_app(
     def signal_history(limit: int = 20) -> dict[str, object]:
         limit = max(1, min(limit, 100))
         return {"signals": current_database.signal_history(limit=limit), "x402_enabled": current_settings.enable_x402}
+
+    @app.get("/trades")
+    def trades(limit: int = 20) -> dict[str, object]:
+        limit = max(1, min(limit, 100))
+        rows = current_database.trade_history(limit=limit)
+        for row in rows:
+            row["explorer_url"] = _explorer_tx(row.get("tx_signature"))
+        return {"trades": rows, "x402_enabled": current_settings.enable_x402}
 
     return app
 
