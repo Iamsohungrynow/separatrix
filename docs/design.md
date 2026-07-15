@@ -1,65 +1,52 @@
 # Design
 
-## Current MVP Boundary
+## What Leash Is
 
-The repository now implements a narrow vertical slice:
+Leash is an on-chain spending firewall for AI agents on Solana. The unit of trust is inverted from the usual agent-wallet setup: instead of trusting the agent's process to respect limits, the owner funds a program-owned vault and the program enforces the limits on every spend, fail-closed.
 
-- a Python runtime that can initialize state, emit a demo signal, and execute a paper trade locally
-- live arXiv/RSS ingestion, price fetchers, Groq scoring, signal generation, and validation
-- a SQLite database for raw items, scores, signals, trades, positions, snapshots, and app state
-- an Anchor program that models the on-chain policy rules for devnet
-- a small FastAPI surface for local observability, policy status, trade history, and explorer links
-- a TypeScript command bridge for fail-closed devnet policy approval from the Python runtime
+The repository has three layers:
 
-The missing pieces are verified live devnet deployment, native `anchorpy` integration, x402 enforcement, and a production dashboard.
+1. **The program** (`programs/leash/`) — a single-file Anchor program holding the policy state and the vault, and enforcing every rule at `spend` time.
+2. **The bridge** (`scripts/devnet-leash.ts` + `idl/leash.json`) — a TypeScript CLI that owners and agents (including the Python client) drive; every result is a JSON line so machines can consume it.
+3. **The demo agent** (`agent/`) — a deliberately untrusted consumer: a research-driven paper trader whose BUYs must clear the leash with real devnet SOL before the paper trade executes.
 
-## Policy Model
+## Program Model
 
-The policy controller is the canonical control surface for BUY activity.
+Accounts:
 
-Rules enforced on-chain:
+- `LeashState` PDA at `["leash", agent_pubkey]` — owner, agent, caps, spent-today accumulator, day index, totals, halt flag, allowlist (max 8), bumps. One leash per agent key.
+- Vault PDA at `["vault", leash_pubkey]` — a system-owned account holding lamports; only the program can sign transfers out of it (`invoke_signed`).
 
-- per-trade BUY cap
-- daily BUY cap
-- monotonic trade sequence
-- halt / resume
+Rules enforced on-chain, in order, at `spend`:
 
-Rules enforced off-chain for now:
+1. amount > 0
+2. not halted
+3. UTC day roll (resets `spent_today`)
+4. amount <= per-tx cap
+5. spent_today + amount <= daily cap
+6. recipient in allowlist (when enforced)
+7. vault balance sufficient
 
-- max position concentration
-- drawdown stop
-- stop loss
+Only then does the CPI transfer run and the accumulators update. A `SpendExecuted` event is emitted for indexers.
 
-This split is deliberate. The on-chain program should stay small and auditable.
+Rules deliberately kept off-chain (demo-agent concerns, not custody concerns): position concentration, drawdown stops, stop losses. The program stays small enough to audit in one sitting.
 
-## Local vs Devnet Execution
+## Bridge Model
 
-### Local mode
+The Python client shells out to `npm run devnet:spend` / `devnet:status-json` and parses a single JSON line. Design rules:
 
-`agent.main` uses a local policy simulator with the same rule shape as the Anchor program. This keeps development fast and lets the Python side evolve before the Solana toolchain is installed everywhere.
+- Fail closed: nonzero exit, timeout, missing binary, or malformed output are all rejections, never approvals.
+- Typed rejections: on-chain errors map to stable reason strings (`LEASH_HALTED`, `PER_TX_CAP_EXCEEDED`, `DAILY_CAP_EXCEEDED`, `RECIPIENT_NOT_ALLOWED`, `VAULT_INSUFFICIENT`, ...).
+- No toolchain at runtime: the bridge loads the committed `idl/leash.json` and constructs the program client directly; `anchor build` is only needed to modify the program itself.
 
-### Devnet mode
+A native `anchorpy` client remains a cleanup candidate, but the subprocess bridge is the honest, tested path today.
 
-The intended devnet path is:
+## Demo Agent Model
 
-1. deploy `policy_controller`
-2. initialize the PDA for the agent wallet
-3. use the devnet Anchor policy client from Python through the TypeScript command bridge
-4. submit BUY and SELL approvals before portfolio mutation
+`agent.main` runs ingest -> score -> validate -> execute. The executor converts a BUY of N paper-USDC into a leash spend of `N * SOL_PER_USDC_BUDGET` SOL (default 0.001). The on-chain spend is budget metering — real value leaves the vault to the configured recipient — while the trade itself stays paper. SELLs release no vault funds and need no on-chain approval.
 
-The current Python client uses the repo's Anchor TypeScript command bridge. Native `anchorpy` is still the preferred long-term cleanup once the dependency split is resolved.
+Local mode (`ENABLE_DEVNET_LEASH=false`) swaps in `LocalLeashClient`, an in-process simulator with the same rule shape, so the Python side can be developed and tested without a cluster.
 
 ## Data Model
 
-The SQLite schema stores:
-
-- raw items
-- model scores
-- validated signals
-- executed trades
-- positions
-- P&L snapshots
-- app metadata
-- paid request receipts
-
-Live cycles currently populate raw items, scores, validated signals, executed trades, positions, P&L snapshots, and app metadata. Paid request receipts are reserved for x402 work.
+The SQLite schema stores raw items, model scores, validated signals, executed trades (with devnet tx signatures), positions, P&L snapshots, and app metadata. The FastAPI surface (`/health`, `/leash`, `/pnl`, `/signal/*`, `/trades`) exposes it to the dashboard, which renders leash state and spend history with explorer links.
