@@ -101,6 +101,6 @@ Pinned targets:
 
 Next steps:
   1. powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
-  2. verify POLICY_CONTROLLER_PROGRAM_ID in .env matches Anchor.toml and declare_id!
+  2. verify LEASH_PROGRAM_ID in .env matches Anchor.toml and declare_id!
   3. run anchor test
 "@
