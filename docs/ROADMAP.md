@@ -12,24 +12,27 @@ This roadmap tracks the code that actually exists in the repository, not the bro
 - [x] Policy controller program scaffold
 - [x] Local Python tests
 - [x] Separate Python dependency tracks for `anchorpy` and x402 SVM work
-- [x] Static dashboard shell
+- [x] API-backed static dashboard shell
 
 ## Phase 1: Real Agent Inputs
 
-- [ ] arXiv fetcher with deduplication
-- [ ] Google News RSS fetcher
-- [ ] Jupiter price fetcher
-- [ ] CoinGecko fallback
-- [ ] Groq-backed scorer
-- [ ] Signal generator and validator using live inputs
+- [x] arXiv fetcher with deduplication
+- [x] Google News RSS fetcher
+- [x] Jupiter price fetcher
+- [x] CoinGecko fallback
+- [x] Groq-backed scorer
+- [x] Signal generator and validator using live inputs
+- [x] Persist raw items and model scores from live cycles
 
 ## Phase 2: Solana Devnet Integration
 
 - [ ] Run `anchor test` against local validator
 - [ ] Deploy `policy_controller` to devnet
-- [ ] Replace local policy simulator with `anchorpy` client
-- [ ] Expose on-chain state through the API
-- [ ] Add explorer links to trades and status responses
+- [x] Add explicit devnet policy initialization and smoke scripts
+- [x] Add fail-closed Python devnet policy submission through the Anchor command bridge
+- [ ] Replace the command bridge with a native `anchorpy` client
+- [x] Expose on-chain state through the API
+- [x] Add explorer links to trades and status responses
 
 ## Phase 3: Public API + Monetization
 
@@ -37,14 +40,16 @@ This roadmap tracks the code that actually exists in the repository, not the bro
 - [ ] Buyer-demo flow on devnet
 - [ ] Settlement logging
 - [ ] Rate limiting and request hardening
+- [ ] Authorization for protected API operations once exposed beyond localhost
 - [ ] Collapse the split Python environments once upstream package ranges converge
 
 ## Phase 4: Public Demo
 
-- [ ] Replace the static dashboard shell with a live UI
+- [ ] Host and polish the API-backed dashboard
 - [ ] Run the agent for 48h+
 - [ ] Capture screenshots and a short demo
-- [ ] Add CI for Python and Anchor
+- [x] Add CI for Python and TypeScript checks
+- [ ] Add CI for Anchor once the build backend is available
 
 ## Non-Goals For The Current MVP
 

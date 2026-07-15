@@ -126,6 +126,8 @@ Use the repo scripts first:
 powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
 powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
 powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
+powershell -ExecutionPolicy Bypass -File scripts/init-policy.ps1
+powershell -ExecutionPolicy Bypass -File scripts/smoke-devnet.ps1
 ```
 
 If Anchor work is blocked, do not fake success in docs. Note the exact blocker.
@@ -196,7 +198,8 @@ Each commit should tell a coherent engineering story. A reviewer should be able 
 
 - Python and x402/Anchor Python work are split across different requirements files for dependency reasons
 - Anchor runtime validation is not the default CI path yet
-- The Python executor still uses the local simulator instead of submitting live Anchor approvals
+- The Python executor uses the local simulator by default and a fail-closed Anchor TypeScript command bridge when `ENABLE_DEVNET_POLICY=true`
+- Native `anchorpy` submission is still pending
 
 Build around those constraints instead of pretending they do not exist.
 

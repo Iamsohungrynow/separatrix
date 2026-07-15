@@ -34,12 +34,14 @@ describe("policy_controller", () => {
     const policyPda = derivePolicyPda(agent.publicKey);
 
     await program.methods
-      .initializePolicy(agent.publicKey, new anchor.BN(dailyBuyLimit), new anchor.BN(perTradeBuyLimit))
+      .initializePolicy(new anchor.BN(dailyBuyLimit), new anchor.BN(perTradeBuyLimit))
       .accounts({
         owner: provider.wallet.publicKey,
+        agent: agent.publicKey,
         policy: policyPda,
         systemProgram: anchor.web3.SystemProgram.programId
       })
+      .signers([agent])
       .rpc();
 
     return policyPda;
@@ -99,6 +101,28 @@ describe("policy_controller", () => {
     }
     assert.isNotNull(updateError);
     assertAnchorError(updateError, "InvalidPolicy");
+  });
+
+  it("requires the agent signer during initialization", async () => {
+    const agent = anchor.web3.Keypair.generate();
+    const policyPda = derivePolicyPda(agent.publicKey);
+
+    let initError: unknown = null;
+    try {
+      await program.methods
+        .initializePolicy(new anchor.BN(10_000_000), new anchor.BN(5_000_000))
+        .accounts({
+          owner: provider.wallet.publicKey,
+          agent: agent.publicKey,
+          policy: policyPda,
+          systemProgram: anchor.web3.SystemProgram.programId
+        })
+        .rpc();
+    } catch (error) {
+      initError = error;
+    }
+
+    assert.isNotNull(initError);
   });
 
   it("rejects unauthorized owner and agent signers", async () => {

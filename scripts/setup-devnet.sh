@@ -46,6 +46,6 @@ Pinned targets:
 
 Next steps:
   1. bash scripts/deploy.sh
-  2. update POLICY_CONTROLLER_PROGRAM_ID in .env
+  2. verify POLICY_CONTROLLER_PROGRAM_ID in .env matches Anchor.toml and declare_id!
   3. run anchor test
 EOF

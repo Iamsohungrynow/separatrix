@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import json
+import os
+from pathlib import Path
+import subprocess
 
 from agent.models import TradeDecision, TradeRequest
 
@@ -67,9 +72,125 @@ class AnchorPolicyClient:
     rpc_url: str
     program_id: str
     wallet_path: str
+    project_root: str = "."
+    timeout_seconds: int = 60
 
     def submit_trade(self, request: TradeRequest) -> TradeDecision:
-        raise NotImplementedError(
-            "Anchor devnet submission is scaffolded but not wired yet. "
-            "Use LocalPolicyClient until anchorpy integration is added."
+        if request.side not in {"BUY", "SELL"}:
+            return TradeDecision(approved=False, reason=f"UNSUPPORTED_SIDE:{request.side}")
+
+        amount = self._format_amount(request.amount_usdc)
+        if amount is None:
+            return TradeDecision(approved=False, reason="INVALID_TRADE_AMOUNT")
+
+        command = self._build_command(request.side, amount, request.sequence)
+        env = os.environ.copy()
+        env["SOLANA_RPC_URL"] = self.rpc_url
+        env["POLICY_CONTROLLER_PROGRAM_ID"] = self.program_id
+        env["AGENT_WALLET_PATH"] = self.wallet_path
+
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(Path(self.project_root)),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            return TradeDecision(approved=False, reason=f"ANCHOR_SUBMISSION_UNAVAILABLE:{exc}")
+        except subprocess.TimeoutExpired:
+            return TradeDecision(approved=False, reason="ANCHOR_SUBMISSION_TIMEOUT")
+
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "unknown error").strip()
+            return TradeDecision(approved=False, reason=f"ANCHOR_SUBMISSION_FAILED:{detail[:240]}")
+
+        payload = self._parse_submit_output(completed.stdout)
+        if payload is None:
+            return TradeDecision(approved=False, reason="ANCHOR_SUBMISSION_MALFORMED_OUTPUT")
+
+        return TradeDecision(
+            approved=bool(payload.get("approved", False)),
+            reason=str(payload.get("reason", "APPROVED")),
+            tx_signature=payload.get("tx_signature"),
         )
+
+    def policy_status(self) -> dict[str, object]:
+        command = self._build_status_command()
+        env = os.environ.copy()
+        env["SOLANA_RPC_URL"] = self.rpc_url
+        env["POLICY_CONTROLLER_PROGRAM_ID"] = self.program_id
+        env["AGENT_WALLET_PATH"] = self.wallet_path
+
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(Path(self.project_root)),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_seconds,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            return self._unavailable_status(f"ANCHOR_STATUS_UNAVAILABLE:{exc}")
+        except subprocess.TimeoutExpired:
+            return self._unavailable_status("ANCHOR_STATUS_TIMEOUT")
+
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "unknown error").strip()
+            return self._unavailable_status(f"ANCHOR_STATUS_FAILED:{detail[:240]}")
+
+        payload = self._parse_submit_output(completed.stdout)
+        if payload is None:
+            return self._unavailable_status("ANCHOR_STATUS_MALFORMED_OUTPUT")
+        return payload
+
+    @staticmethod
+    def _format_amount(amount_usdc: float) -> str | None:
+        try:
+            amount = Decimal(str(amount_usdc))
+        except InvalidOperation:
+            return None
+
+        if amount <= 0:
+            return None
+
+        return str(amount.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP))
+
+    def _build_command(self, side: str, amount: str, sequence: int) -> list[str]:
+        args = ["npm", "run", "-s", "devnet:submit", "--", side, amount, str(sequence)]
+        if os.name == "nt":
+            return ["cmd", "/c", *args]
+        return args
+
+    def _build_status_command(self) -> list[str]:
+        args = ["npm", "run", "-s", "devnet:policy-status-json"]
+        if os.name == "nt":
+            return ["cmd", "/c", *args]
+        return args
+
+    def _unavailable_status(self, reason: str) -> dict[str, object]:
+        return {
+            "available": False,
+            "reason": reason,
+            "rpc_url": self.rpc_url,
+            "program_id": self.program_id,
+        }
+
+    @staticmethod
+    def _parse_submit_output(stdout: str) -> dict[str, object] | None:
+        for line in reversed(stdout.splitlines()):
+            text = line.strip()
+            if not text.startswith("{"):
+                continue
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        return None

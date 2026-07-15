@@ -93,7 +93,7 @@ class Settings:
             agent_wallet_path=os.getenv("AGENT_WALLET_PATH", "keys/agent-devnet.json"),
             treasury_wallet_path=os.getenv("TREASURY_WALLET_PATH", "keys/treasury-devnet.json"),
             policy_controller_program_id=os.getenv(
-                "POLICY_CONTROLLER_PROGRAM_ID", "Fg6PaFpoGXkYsidMpWxTWqk6W2BeZ7FEfcYkgMQHgZP"
+                "POLICY_CONTROLLER_PROGRAM_ID", "Ej6KFBgzyNqcT9D1FpGfWMePhFWgfB4wkzuK1rv3UqSG"
             ),
             enable_devnet_policy=_get_bool("ENABLE_DEVNET_POLICY", False),
             groq_api_key=os.getenv("GROQ_API_KEY", ""),

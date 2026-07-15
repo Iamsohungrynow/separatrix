@@ -60,6 +60,8 @@ finally {
 Write-Host @"
 Anchor deploy completed.
 
-Replace POLICY_CONTROLLER_PROGRAM_ID in .env with the deployed program id.
-Then initialize the policy PDA before wiring the Python client.
+Verify POLICY_CONTROLLER_PROGRAM_ID in .env matches the deployed program id.
+Then run:
+  powershell -ExecutionPolicy Bypass -File scripts/init-policy.ps1
+  powershell -ExecutionPolicy Bypass -File scripts/smoke-devnet.ps1
 "@
