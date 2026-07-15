@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("qubitalpha.scoring.llm")
+logger = logging.getLogger("leash.scoring.llm")
 
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_MODEL = "llama-3.3-70b-versatile"

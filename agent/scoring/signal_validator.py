@@ -5,7 +5,7 @@ from typing import Any
 
 from agent.models import Signal
 
-logger = logging.getLogger("qubitalpha.scoring.signal_validator")
+logger = logging.getLogger("leash.scoring.signal_validator")
 
 # Hard limits — signals outside these bounds are rejected outright.
 MAX_POSITION_SIZE_USDC = 50.0

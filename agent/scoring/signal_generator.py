@@ -5,7 +5,7 @@ from typing import Any
 
 from agent.models import Signal
 
-logger = logging.getLogger("qubitalpha.scoring.signal_generator")
+logger = logging.getLogger("leash.scoring.signal_generator")
 
 # Hard limits on generated signals per cycle.
 MAX_SIGNALS_PER_CYCLE = 3

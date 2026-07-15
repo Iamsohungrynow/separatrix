@@ -117,17 +117,17 @@ class MainEntryPointTestCase(unittest.TestCase):
                 "\n".join(
                     [
                         f"SQLITE_PATH={db_path}",
-                        "ENABLE_DEVNET_POLICY=true",
+                        "ENABLE_DEVNET_LEASH=true",
                     ]
                 ),
                 encoding="utf-8",
             )
 
             with patch.object(sys, "argv", ["agent.main", "--env-file", str(env_path), "--once"]), \
-                 patch("agent.trading.policy_client.subprocess.run") as run:
+                 patch("agent.trading.leash_client.subprocess.run") as run:
                 run.return_value.returncode = 1
                 run.return_value.stdout = ""
-                run.return_value.stderr = "policy account not initialized"
+                run.return_value.stderr = "leash account not initialized"
                 main()
 
             database = Database(db_path)
@@ -371,8 +371,8 @@ class MainEntryPointTestCase(unittest.TestCase):
         self.assertIn("GROQ_API_KEY", str(exc.exception))
         shutil.rmtree(case_dir, ignore_errors=True)
 
-    def test_main_loop_devnet_policy_rejection_does_not_mutate_portfolio(self) -> None:
-        """--loop with ENABLE_DEVNET_POLICY=true fails closed when chain approval is unavailable."""
+    def test_main_loop_devnet_leash_rejection_does_not_mutate_portfolio(self) -> None:
+        """--loop with ENABLE_DEVNET_LEASH=true fails closed when chain approval is unavailable."""
         with patch.dict("os.environ", {}, clear=True):
             case_dir = Path(".tmp-tests") / "test_main_loop_devnet"
             shutil.rmtree(case_dir, ignore_errors=True)
@@ -383,7 +383,7 @@ class MainEntryPointTestCase(unittest.TestCase):
             env_path.write_text(
                 "\n".join([
                     f"SQLITE_PATH={db_path}",
-                    "ENABLE_DEVNET_POLICY=true",
+                    "ENABLE_DEVNET_LEASH=true",
                     "GROQ_API_KEY=test-key-fake",
                     "POLL_INTERVAL_SECONDS=0",
                 ]),
@@ -408,10 +408,10 @@ class MainEntryPointTestCase(unittest.TestCase):
                  patch("agent.ingestion.arxiv.fetch_arxiv", mock_arxiv), \
                  patch("agent.ingestion.news_rss.fetch_news_rss", mock_news), \
                  patch("agent.scoring.llm_scorer.score_items", mock_scores), \
-                 patch("agent.trading.policy_client.subprocess.run") as run:
+                 patch("agent.trading.leash_client.subprocess.run") as run:
                 run.return_value.returncode = 1
                 run.return_value.stdout = ""
-                run.return_value.stderr = "policy account not initialized"
+                run.return_value.stderr = "leash account not initialized"
                 main()
 
             database = Database(db_path)

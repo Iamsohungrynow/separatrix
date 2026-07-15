@@ -8,7 +8,7 @@ from unittest.mock import patch
 from agent.db.database import Database
 from agent.models import Signal
 from agent.trading.executor import PaperTradeExecutor
-from agent.trading.policy_client import LocalPolicyClient
+from agent.trading.leash_client import LocalLeashClient
 
 
 class ExecutorTestCase(unittest.TestCase):
@@ -23,10 +23,9 @@ class ExecutorTestCase(unittest.TestCase):
 
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -65,10 +64,9 @@ class ExecutorTestCase(unittest.TestCase):
 
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -121,10 +119,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(1000.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -170,10 +167,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(1000.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )
@@ -235,12 +231,8 @@ class ExecutorTestCase(unittest.TestCase):
         database = Database(case_dir / "state.db")
         database.initialize()
         database.ensure_cash(5.0)
-        policy = LocalPolicyClient(
-            daily_buy_limit_usdc=10.0,
-            per_trade_buy_limit_usdc=5.0,
-            starting_sequence=database.get_next_trade_sequence(),
-        )
-        executor = PaperTradeExecutor(db=database, policy_client=policy, starting_cash_usdc=5.0)
+        leash = LocalLeashClient(per_tx_cap_sol=0.005, daily_cap_sol=0.01)
+        executor = PaperTradeExecutor(db=database, leash_client=leash, starting_cash_usdc=5.0)
 
         insufficient_cash = executor.execute(
             Signal(
@@ -319,10 +311,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(100.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=100.0,
         )
@@ -352,7 +343,7 @@ class ExecutorTestCase(unittest.TestCase):
         next_sequence = database.get_next_trade_sequence()
         database.close()
 
-        self.assertEqual(rejected.reason, "TRADE_TOO_BIG")
+        self.assertEqual(rejected.reason, "PER_TX_CAP_EXCEEDED")
         self.assertTrue(approved.approved)
         self.assertEqual(approved.tx_signature, "LOCAL-000001")
         self.assertEqual(next_sequence, 2)
@@ -369,10 +360,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(100.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=10.0,
-                per_trade_buy_limit_usdc=5.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
             ),
             starting_cash_usdc=100.0,
         )
@@ -417,10 +407,9 @@ class ExecutorTestCase(unittest.TestCase):
         database.ensure_cash(1000.0)
         executor = PaperTradeExecutor(
             db=database,
-            policy_client=LocalPolicyClient(
-                daily_buy_limit_usdc=20.0,
-                per_trade_buy_limit_usdc=10.0,
-                starting_sequence=database.get_next_trade_sequence(),
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.01,
+                daily_cap_sol=0.02,
             ),
             starting_cash_usdc=1000.0,
         )

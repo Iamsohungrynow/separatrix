@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent.config import Settings
 from agent.db.database import Database
-from agent.trading.policy_client import AnchorPolicyClient
+from agent.trading.leash_client import AnchorLeashClient
 
 
 def _explorer_address(address: str) -> str:
@@ -27,7 +27,7 @@ def create_app(
     current_database.initialize()
     current_database.ensure_cash(current_settings.starting_paper_cash_usdc)
 
-    app = FastAPI(title="QubitAlpha API", version="0.1.0")
+    app = FastAPI(title="Leash API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -37,33 +37,33 @@ def create_app(
 
     @app.get("/health")
     def health() -> dict[str, object]:
-        policy_mode = "devnet-anchor" if current_settings.enable_devnet_policy else "local-simulator"
-        payload = current_database.health_snapshot(network=current_settings.solana_network, policy_mode=policy_mode)
-        payload["policy_program_id"] = current_settings.policy_controller_program_id
-        payload["policy_program_explorer_url"] = _explorer_address(current_settings.policy_controller_program_id)
+        leash_mode = "devnet-anchor" if current_settings.enable_devnet_leash else "local-simulator"
+        payload = current_database.health_snapshot(network=current_settings.solana_network, policy_mode=leash_mode)
+        payload["leash_program_id"] = current_settings.leash_program_id
+        payload["leash_program_explorer_url"] = _explorer_address(current_settings.leash_program_id)
         return payload
 
-    @app.get("/policy")
-    def policy() -> dict[str, object]:
-        policy_mode = "devnet-anchor" if current_settings.enable_devnet_policy else "local-simulator"
+    @app.get("/leash")
+    def leash() -> dict[str, object]:
+        leash_mode = "devnet-anchor" if current_settings.enable_devnet_leash else "local-simulator"
         payload: dict[str, object] = {
             "network": current_settings.solana_network,
-            "policy_mode": policy_mode,
-            "devnet_policy_enabled": current_settings.enable_devnet_policy,
-            "program_id": current_settings.policy_controller_program_id,
-            "program_explorer_url": _explorer_address(current_settings.policy_controller_program_id),
+            "leash_mode": leash_mode,
+            "devnet_leash_enabled": current_settings.enable_devnet_leash,
+            "program_id": current_settings.leash_program_id,
+            "program_explorer_url": _explorer_address(current_settings.leash_program_id),
         }
 
-        if not current_settings.enable_devnet_policy:
+        if not current_settings.enable_devnet_leash:
             payload["on_chain"] = None
             return payload
 
-        client = AnchorPolicyClient(
+        client = AnchorLeashClient(
             rpc_url=current_settings.solana_rpc_url,
-            program_id=current_settings.policy_controller_program_id,
+            program_id=current_settings.leash_program_id,
             wallet_path=current_settings.agent_wallet_path,
         )
-        payload["on_chain"] = client.policy_status()
+        payload["on_chain"] = client.leash_status()
         return payload
 
     @app.get("/pnl")

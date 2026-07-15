@@ -87,7 +87,7 @@ class ApiTestCase(unittest.TestCase):
             latest = client.get("/signal/latest")
             history = client.get("/signal/history", params={"limit": 1})
             trades = client.get("/trades", params={"limit": 5})
-            policy = client.get("/policy")
+            leash = client.get("/leash")
             database.close()
 
         self.assertEqual(health.status_code, 200)
@@ -107,13 +107,13 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(trades_payload["trades"][0]["tx_signature"], "LOCAL-000002")
         self.assertIsNone(trades_payload["trades"][0]["explorer_url"])
         self.assertAlmostEqual(trades_payload["trades"][0]["amount_usdc"], 3.0)
-        self.assertEqual(policy.status_code, 200)
-        self.assertEqual(policy.json()["policy_mode"], "local-simulator")
-        self.assertIsNone(policy.json()["on_chain"])
+        self.assertEqual(leash.status_code, 200)
+        self.assertEqual(leash.json()["leash_mode"], "local-simulator")
+        self.assertIsNone(leash.json()["on_chain"])
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
-    def test_api_returns_empty_defaults_and_devnet_policy_mode(self) -> None:
+    def test_api_returns_empty_defaults_and_devnet_leash_mode(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
             case_dir = Path(".tmp-tests") / "test_api_empty"
             shutil.rmtree(case_dir, ignore_errors=True)
@@ -124,7 +124,7 @@ class ApiTestCase(unittest.TestCase):
                 "\n".join(
                     [
                         f"SQLITE_PATH={case_dir / 'state.db'}",
-                        "ENABLE_DEVNET_POLICY=true",
+                        "ENABLE_DEVNET_LEASH=true",
                     ]
                 ),
                 encoding="utf-8",
@@ -138,10 +138,10 @@ class ApiTestCase(unittest.TestCase):
             status_payload = {
                 "available": True,
                 "initialized": True,
-                "program_id": settings.policy_controller_program_id,
-                "policy_pda": "PolicyPda111111111111111111111111111111111",
-                "policy_explorer_url": "https://explorer.solana.com/address/PolicyPda111111111111111111111111111111111?cluster=devnet",
-                "next_trade_seq": "7",
+                "program_id": settings.leash_program_id,
+                "leash_pda": "LeashPda1111111111111111111111111111111111",
+                "leash_explorer_url": "https://explorer.solana.com/address/LeashPda1111111111111111111111111111111111?cluster=devnet",
+                "spend_count": "7",
                 "halted": False,
             }
             completed = subprocess.CompletedProcess(
@@ -152,10 +152,10 @@ class ApiTestCase(unittest.TestCase):
             )
 
             client = TestClient(create_app(settings, database))  # type: ignore[misc]
-            with patch("agent.trading.policy_client.subprocess.run", return_value=completed) as run:
+            with patch("agent.trading.leash_client.subprocess.run", return_value=completed) as run:
                 health = client.get("/health")
                 run.assert_not_called()
-                policy = client.get("/policy")
+                leash = client.get("/leash")
                 run.assert_called_once()
                 pnl = client.get("/pnl")
                 latest = client.get("/signal/latest")
@@ -165,11 +165,11 @@ class ApiTestCase(unittest.TestCase):
 
         self.assertEqual(health.status_code, 200)
         self.assertEqual(health.json()["policy_mode"], "devnet-anchor")
-        self.assertEqual(health.json()["policy_program_id"], settings.policy_controller_program_id)
-        self.assertEqual(policy.status_code, 200)
-        self.assertTrue(policy.json()["devnet_policy_enabled"])
-        self.assertTrue(policy.json()["on_chain"]["available"])
-        self.assertEqual(policy.json()["on_chain"]["next_trade_seq"], "7")
+        self.assertEqual(health.json()["leash_program_id"], settings.leash_program_id)
+        self.assertEqual(leash.status_code, 200)
+        self.assertTrue(leash.json()["devnet_leash_enabled"])
+        self.assertTrue(leash.json()["on_chain"]["available"])
+        self.assertEqual(leash.json()["on_chain"]["spend_count"], "7")
         self.assertEqual(pnl.status_code, 200)
         self.assertEqual(pnl.json()["positions"], [])
         self.assertEqual(latest.status_code, 200)

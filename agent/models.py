@@ -31,15 +31,13 @@ class Position:
 
 
 @dataclass(slots=True)
-class TradeRequest:
-    asset: str
-    side: str
-    amount_usdc: float
-    sequence: int
+class SpendRequest:
+    amount_sol: float
+    recipient: str | None = None
 
 
 @dataclass(slots=True)
-class TradeDecision:
+class SpendDecision:
     approved: bool
     reason: str
     tx_signature: str | None = None

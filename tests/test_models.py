@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from agent.models import ExecutionResult, Signal, TradeDecision, utc_now_iso
+from agent.models import ExecutionResult, Signal, SpendDecision, utc_now_iso
 
 
 class ModelsTestCase(unittest.TestCase):
@@ -28,7 +28,7 @@ class ModelsTestCase(unittest.TestCase):
         self.assertTrue(signal.timestamp.endswith("Z"))
 
     def test_trade_result_defaults_are_zeroed(self) -> None:
-        decision = TradeDecision(approved=True, reason="APPROVED")
+        decision = SpendDecision(approved=True, reason="APPROVED")
         result = ExecutionResult(approved=False, reason="REJECTED")
 
         self.assertIsNone(decision.tx_signature)

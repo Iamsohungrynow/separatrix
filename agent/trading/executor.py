@@ -3,14 +3,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from agent.db.database import Database
-from agent.models import ExecutionResult, Position, Signal, TradeRequest
+from agent.models import ExecutionResult, Position, Signal, SpendDecision, SpendRequest
 
 
 @dataclass(slots=True)
 class PaperTradeExecutor:
+    """Paper-trades signals, but every BUY must clear the leash first.
+
+    The leash client meters real devnet SOL out of the guarded vault: a BUY of
+    N paper-USDC requests a spend of N * sol_per_usdc_budget SOL. If the
+    on-chain policy blocks the spend, the paper trade does not happen either.
+    SELLs release no vault funds, so they need no on-chain approval.
+    """
+
     db: Database
-    policy_client: object
+    leash_client: object
     starting_cash_usdc: float
+    sol_per_usdc_budget: float = 0.001
+    spend_recipient: str | None = None
 
     def execute(self, signal: Signal, price_usdc: float) -> ExecutionResult:
         self.db.ensure_cash(self.starting_cash_usdc)
@@ -18,27 +28,25 @@ class PaperTradeExecutor:
         if precheck_failure is not None:
             return ExecutionResult(approved=False, reason=precheck_failure)
 
-        sequence = self.db.get_next_trade_sequence()
-
-        decision = self.policy_client.submit_trade(
-            TradeRequest(
-                asset=signal.asset,
-                side=signal.action,
-                amount_usdc=signal.position_size_usdc,
-                sequence=sequence,
+        if signal.action == "BUY":
+            decision = self.leash_client.request_spend(
+                SpendRequest(
+                    amount_sol=signal.position_size_usdc * self.sol_per_usdc_budget,
+                    recipient=self.spend_recipient,
+                )
             )
-        )
+        else:
+            decision = SpendDecision(approved=True, reason="NO_ONCHAIN_SPEND")
 
         if not decision.approved:
             return ExecutionResult(approved=False, reason=decision.reason, tx_signature=decision.tx_signature)
 
+        sequence = self.db.get_next_trade_sequence()
         with self.db.transaction():
             if signal.action == "BUY":
                 result = self._execute_buy(signal, price_usdc, decision.tx_signature)
-            elif signal.action == "SELL":
-                result = self._execute_sell(signal, price_usdc, decision.tx_signature)
             else:
-                return ExecutionResult(approved=False, reason=f"UNSUPPORTED_ACTION:{signal.action}")
+                result = self._execute_sell(signal, price_usdc, decision.tx_signature)
 
             if result.approved:
                 self.db.set_next_trade_sequence(sequence + 1)
