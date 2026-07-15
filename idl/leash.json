@@ -1,0 +1,765 @@
+{
+  "address": "EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV",
+  "metadata": {
+    "name": "leash",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Leash: on-chain spending guardrails for AI agents"
+  },
+  "instructions": [
+    {
+      "name": "create_leash",
+      "discriminator": [
+        78,
+        13,
+        81,
+        231,
+        46,
+        252,
+        193,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "agent"
+        },
+        {
+          "name": "leash",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "agent"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "per_tx_cap_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "daily_cap_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "allowlist_enforced",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "deposit",
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "leash",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "spend",
+      "discriminator": [
+        242,
+        205,
+        255,
+        87,
+        101,
+        217,
+        245,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "leash",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent",
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "recipient",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_limits",
+      "discriminator": [
+        89,
+        37,
+        137,
+        60,
+        75,
+        70,
+        48,
+        194
+      ],
+      "accounts": [
+        {
+          "name": "leash",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "per_tx_cap_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "daily_cap_lamports",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_halt",
+      "discriminator": [
+        212,
+        192,
+        179,
+        66,
+        23,
+        73,
+        197,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "leash",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "halted",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_allowlist",
+      "discriminator": [
+        141,
+        30,
+        41,
+        131,
+        132,
+        7,
+        216,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "leash",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "enforced",
+          "type": "bool"
+        },
+        {
+          "name": "recipients",
+          "type": {
+            "vec": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw",
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "leash",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  101,
+                  97,
+                  115,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash.agent",
+                "account": "LeashState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "leash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_lamports",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "LeashState",
+      "discriminator": [
+        114,
+        236,
+        199,
+        219,
+        101,
+        62,
+        224,
+        191
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "SpendExecuted",
+      "discriminator": [
+        27,
+        251,
+        149,
+        186,
+        175,
+        148,
+        73,
+        5
+      ]
+    },
+    {
+      "name": "VaultDeposited",
+      "discriminator": [
+        59,
+        62,
+        43,
+        200,
+        220,
+        104,
+        100,
+        67
+      ]
+    },
+    {
+      "name": "VaultWithdrawn",
+      "discriminator": [
+        238,
+        9,
+        219,
+        172,
+        188,
+        77,
+        72,
+        104
+      ]
+    },
+    {
+      "name": "HaltChanged",
+      "discriminator": [
+        152,
+        118,
+        17,
+        65,
+        125,
+        156,
+        41,
+        128
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "LeashHalted",
+      "msg": "the leash is halted; the agent may not spend"
+    },
+    {
+      "code": 6001,
+      "name": "PerTxCapExceeded",
+      "msg": "the spend exceeds the per-transaction cap"
+    },
+    {
+      "code": 6002,
+      "name": "DailyCapExceeded",
+      "msg": "the spend exceeds the daily cap"
+    },
+    {
+      "code": 6003,
+      "name": "RecipientNotAllowed",
+      "msg": "the recipient is not on the allowlist"
+    },
+    {
+      "code": 6004,
+      "name": "VaultInsufficient",
+      "msg": "the vault balance is insufficient"
+    },
+    {
+      "code": 6005,
+      "name": "Overflow",
+      "msg": "arithmetic overflow"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidLimits",
+      "msg": "limits are invalid"
+    },
+    {
+      "code": 6007,
+      "name": "AllowlistTooLarge",
+      "msg": "the allowlist holds at most 8 recipients"
+    },
+    {
+      "code": 6008,
+      "name": "UnauthorizedOwner",
+      "msg": "only the configured owner may perform this action"
+    },
+    {
+      "code": 6009,
+      "name": "UnauthorizedAgent",
+      "msg": "only the configured agent may spend"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidAmount",
+      "msg": "amount must be greater than zero"
+    }
+  ],
+  "types": [
+    {
+      "name": "LeashState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "per_tx_cap_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "daily_cap_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "spent_today_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "current_day_index",
+            "type": "i64"
+          },
+          {
+            "name": "total_spent_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "spend_count",
+            "type": "u64"
+          },
+          {
+            "name": "halted",
+            "type": "bool"
+          },
+          {
+            "name": "allowlist_enforced",
+            "type": "bool"
+          },
+          {
+            "name": "allowed_recipients",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SpendExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leash",
+            "type": "pubkey"
+          },
+          {
+            "name": "agent",
+            "type": "pubkey"
+          },
+          {
+            "name": "recipient",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "spent_today_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "total_spent_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "spend_count",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultDeposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leash",
+            "type": "pubkey"
+          },
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "vault_balance_lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultWithdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leash",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HaltChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "leash",
+            "type": "pubkey"
+          },
+          {
+            "name": "halted",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ]
+}
