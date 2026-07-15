@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
-    <title>qubitalpha.ipynb</title>
+    <title>leash.ipynb</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body data-state="loading">
@@ -12,7 +12,7 @@
       <!-- notebook toolbar -->
       <div class="nb-toolbar">
         <span class="nb-file">
-          <span class="nb-file-mark" aria-hidden="true"></span>qubitalpha.ipynb
+          <span class="nb-file-mark" aria-hidden="true"></span>leash.ipynb
         </span>
         <div class="nb-right">
           <span class="kernel" role="status" aria-live="polite">
@@ -34,9 +34,12 @@
         <div class="row">
           <div class="gutter"></div>
           <div class="cell-main md">
-            <h1 class="md-h1">QubitAlpha</h1>
+            <h1 class="md-h1">Leash</h1>
             <p class="md-p">
-              Autonomous research-to-signal agent, with Solana in the control loop.
+              On-chain spending guardrails for AI agents on Solana. Below, an autonomous
+              demo agent trades on research signals &mdash; but every buy must clear the
+              Leash program on devnet first: per-transaction cap, daily budget, recipient
+              allowlist, and an owner kill switch the agent cannot override.
               This notebook re-runs against the live agent every 30 seconds.
             </p>
           </div>
@@ -117,7 +120,7 @@
       <section class="cell reveal" style="--i: 3">
         <div class="row in-row">
           <div class="gutter"><span class="prompt in">In [3]:</span></div>
-          <pre class="source"><code><span class="t-ob">policy</span><span class="t-op">.</span><span class="t-fn">status</span><span class="t-op">()</span></code></pre>
+          <pre class="source"><code><span class="t-ob">leash</span><span class="t-op">.</span><span class="t-fn">status</span><span class="t-op">()</span></code></pre>
         </div>
         <div class="row out-row">
           <div class="gutter"><span class="prompt out">Out[3]:</span></div>
@@ -125,10 +128,10 @@
             <div class="policy-state">
               <span class="dot" id="policy-dot" data-state="loading" aria-hidden="true"></span>
               <span class="skel" id="policy-state-text">starting</span>
-              <span class="tag" id="policy-mode-tag">on-chain guard</span>
+              <span class="tag" id="policy-mode-tag">on-chain guardrail</span>
             </div>
             <div class="rows" id="policy-rows">
-              <div class="row-kv"><span class="r-k">status</span><span class="r-v">waiting for the policy endpoint</span></div>
+              <div class="row-kv"><span class="r-k">status</span><span class="r-v">waiting for the leash endpoint</span></div>
             </div>
           </div>
         </div>
@@ -233,9 +236,9 @@
         <div class="row">
           <div class="gutter"></div>
           <div class="cell-main md colophon">
-            <span>Paper trades only. No funds custodied.</span>
+            <span>Paper trades; the buy budget is enforced on-chain.</span>
             <span class="sep" aria-hidden="true"></span>
-            <span>policy program <span id="footer-prog">not loaded</span></span>
+            <span>leash program <span id="footer-prog">not loaded</span></span>
             <span class="sep" aria-hidden="true"></span>
             <span>Solana devnet</span>
           </div>
