@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Leash · Owner Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./owner.css" />
+  </head>
+  <body data-wallet="disconnected">
+    <main class="console">
+      <header class="con-head">
+        <div class="con-title">
+          <span class="con-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Leash <span class="con-sub">Owner Console</span></h1>
+            <p class="con-tag">
+              Fund a vault and set the rules your agent spends under — on Solana devnet, from your own wallet.
+              <a href="./index.html">View the live monitor →</a>
+            </p>
+          </div>
+        </div>
+        <div class="con-wallet">
+          <span class="net-badge">devnet</span>
+          <button id="btn-connect" class="btn btn-primary">Connect wallet</button>
+          <div id="wallet-bar" class="wallet-bar" hidden>
+            <span class="w-addr" id="wallet-addr"></span>
+            <span class="w-bal" id="wallet-balance"></span>
+            <button id="btn-disconnect" class="btn btn-ghost" title="Disconnect">×</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="status" class="status" hidden></div>
+
+      <!-- agent selector -->
+      <section class="card">
+        <h2>Agent</h2>
+        <p class="card-note">
+          A leash is bound to one agent public key. Paste the agent's address, or generate a fresh devnet
+          keypair to leash.
+        </p>
+        <div class="agent-row">
+          <input id="agent-input" class="input mono" type="text" placeholder="Agent public key (base58)" spellcheck="false" autocomplete="off" />
+          <button id="btn-load" class="btn btn-primary">Load</button>
+        </div>
+        <div class="gen-agent">
+          <button id="btn-gen-agent" class="btn btn-ghost btn-sm" type="button">Generate a devnet agent keypair</button>
+          <span id="gen-agent-out" class="gen-out"></span>
+        </div>
+      </section>
+
+      <!-- current state -->
+      <section id="state-panel" class="card" hidden>
+        <h2>Leash state</h2>
+        <div id="state-body" class="state-body" data-state="uninitialized">
+          <div class="state-grid">
+            <div class="kv"><span class="k">status</span><span class="v" id="st-status">—</span></div>
+            <div class="kv"><span class="k">owner</span><span class="v mono" id="st-owner">—</span></div>
+            <div class="kv"><span class="k">agent</span><span class="v mono" id="st-agent">—</span></div>
+            <div class="kv"><span class="k">per-tx cap</span><span class="v" id="st-per-tx">—</span></div>
+            <div class="kv"><span class="k">daily cap</span><span class="v" id="st-daily">—</span></div>
+            <div class="kv"><span class="k">vault balance</span><span class="v" id="st-vault">—</span></div>
+            <div class="kv"><span class="k">allowlist</span><span class="v" id="st-allowlist">—</span></div>
+            <div class="kv"><span class="k">spends</span><span class="v" id="st-spend-count">—</span></div>
+            <div class="kv"><span class="k">leash PDA</span><span class="v mono" id="st-leash-pda">—</span></div>
+            <div class="kv"><span class="k">vault PDA</span><span class="v mono" id="st-vault-pda">—</span></div>
+          </div>
+          <div class="budget">
+            <div class="budget-top">
+              <span class="k">daily budget used</span>
+              <span class="v" id="st-spent">—</span>
+            </div>
+            <div class="budget-track"><i id="st-budget-bar" data-kind="ok"></i></div>
+          </div>
+          <div class="allowlist-detail mono" id="st-allowlist-detail"></div>
+        </div>
+      </section>
+
+      <!-- actions -->
+      <section id="actions" class="actions" hidden>
+        <div class="card">
+          <h2>Create leash</h2>
+          <p class="card-note">Creates the policy for the agent above. The connected wallet becomes the owner.</p>
+          <form id="create-form" class="form">
+            <label>per-tx cap (SOL)<input id="create-per-tx" class="input" type="number" step="0.0001" min="0" value="0.05" /></label>
+            <label>daily cap (SOL)<input id="create-daily" class="input" type="number" step="0.0001" min="0" value="0.2" /></label>
+            <label class="check"><input id="create-allowlist" type="checkbox" checked /> enforce recipient allowlist</label>
+            <button class="btn btn-primary" type="submit">Create leash</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Deposit</h2>
+          <p class="card-note">Move SOL from your wallet into the agent's vault.</p>
+          <form id="deposit-form" class="form">
+            <label>amount (SOL)<input id="deposit-amount" class="input" type="number" step="0.0001" min="0" value="0.5" /></label>
+            <button class="btn btn-primary" type="submit">Deposit</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Limits</h2>
+          <p class="card-note">Adjust the caps. Owner only.</p>
+          <form id="limits-form" class="form">
+            <label>per-tx cap (SOL)<input id="limits-per-tx" class="input" type="number" step="0.0001" min="0" value="0.05" /></label>
+            <label>daily cap (SOL)<input id="limits-daily" class="input" type="number" step="0.0001" min="0" value="0.2" /></label>
+            <button class="btn btn-primary" type="submit" data-owner-only>Update limits</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Allowlist</h2>
+          <p class="card-note">Up to 8 recipient addresses the agent may pay. Owner only.</p>
+          <form id="allowlist-form" class="form">
+            <label class="check"><input id="allowlist-enforced" type="checkbox" checked /> enforce allowlist</label>
+            <label>recipients (one per line)<textarea id="allowlist-recipients" class="input mono" rows="3" placeholder="Recipient public keys…" spellcheck="false"></textarea></label>
+            <button class="btn btn-primary" type="submit" data-owner-only>Set allowlist</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Kill switch</h2>
+          <p class="card-note">Instantly stop or resume all spending. Owner only.</p>
+          <button id="halt-btn" class="btn btn-danger" type="button" data-owner-only data-halted="false">Halt agent</button>
+        </div>
+
+        <div class="card">
+          <h2>Withdraw</h2>
+          <p class="card-note">Pull SOL back out of the vault to the owner. Owner only.</p>
+          <form id="withdraw-form" class="form">
+            <label>amount (SOL)<input id="withdraw-amount" class="input" type="number" step="0.0001" min="0" value="0.1" /></label>
+            <button class="btn btn-primary" type="submit" data-owner-only>Withdraw</button>
+          </form>
+        </div>
+      </section>
+
+      <footer class="con-foot">
+        <span>Solana devnet</span>
+        <span class="sep" aria-hidden="true"></span>
+        <span>program <a href="https://explorer.solana.com/address/EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV?cluster=devnet" target="_blank" rel="noreferrer">EZQjF3…6gkV</a></span>
+        <span class="sep" aria-hidden="true"></span>
+        <span>your keys never leave your wallet</span>
+      </footer>
+    </main>
+
+    <script src="./vendor/solana-web3.iife.min.js"></script>
+    <script src="./leash-ix.js"></script>
+    <script src="./owner.js"></script>
+  </body>
+</html>

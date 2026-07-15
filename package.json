@@ -16,6 +16,7 @@
     "devnet:smoke": "ts-node scripts/devnet-leash.ts smoke",
     "test:anchor": "ts-mocha -p tsconfig.json -t 1000000 tests/anchor/*.ts",
     "test:anchor:workflow": "anchor test",
+    "verify:owner-ix": "node scripts/verify-owner-ix.js",
     "lint:ts": "tsc --noEmit"
   },
   "devDependencies": {

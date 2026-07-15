@@ -120,6 +120,14 @@ uvicorn agent.api.server:app --reload
 
 The dashboard shows the leash state (vault balance, caps, budget meter, halt state) and every spend with its explorer link, refreshed live.
 
+## Owner Console (no CLI)
+
+`dashboard/owner.html` is a self-contained wallet-adapter page for owners: connect a Solana wallet (Phantom), then create a leash, deposit to the vault, set caps and the recipient allowlist, halt/resume, or withdraw — all as real devnet transactions signed in your wallet. No CLI, no keys on disk.
+
+It has no build step: it loads a vendored `@solana/web3.js` (offline-safe) and builds instructions from the committed IDL via `dashboard/leash-ix.js`. Open the file or serve the `dashboard/` folder; `owner.html?agent=<pubkey>` deep-links straight to one agent's leash (read-only until a wallet connects).
+
+Because a headless environment can't drive a wallet, the instruction bytes are proven correct another way: `npm run verify:owner-ix` builds every instruction with the page's own encoder and byte-compares it against Anchor, then decodes the live on-chain account to confirm the read path. That check passes against the deployed program.
+
 ## Using Leash from Your Own Agent
 
 TypeScript (the bridge in `scripts/devnet-leash.ts` is the reference; the IDL ships in `idl/leash.json`):
@@ -151,7 +159,8 @@ decision = leash.request_spend(SpendRequest(amount_sol=0.01))
 - [`idl/leash.json`](idl/leash.json) — committed IDL; regenerate with `npm run gen:idl`
 - [`scripts/devnet-leash.ts`](scripts/devnet-leash.ts) — owner/agent CLI bridge (init, spend, halt, smoke, ...)
 - [`agent/`](agent/) — Python demo agent: ingestion, scoring, paper executor, leash client, FastAPI
-- [`dashboard/`](dashboard/) — static live dashboard over the FastAPI endpoints
+- [`dashboard/`](dashboard/) — static live monitor (`index.html`) and the owner console (`owner.html` + `owner.js` + `leash-ix.js`)
+- [`scripts/verify-owner-ix.js`](scripts/verify-owner-ix.js) — proves the owner console's encoder matches Anchor
 - [`tests/`](tests/) — Python unit tests (109) and the Anchor TypeScript test suite
 - [`docs/`](docs/) — design, security model, roadmap, contributor guide
 
