@@ -58,8 +58,8 @@ function formatTime(value) {
   }
 }
 
-function microToUsdc(value) {
-  return (Number(value) || 0) / 1_000_000;
+function lamportsToSol(value) {
+  return (Number(value) || 0) / 1_000_000_000;
 }
 
 function clamp01(value) {
@@ -233,77 +233,85 @@ function renderSignal(latestSignal) {
   setText("sig-reasoning", signal.reasoning || "No reasoning recorded for this signal.");
 }
 
-function renderPolicy(policy) {
+function renderLeash(leash) {
   const stateEl = document.getElementById("policy-state-text");
   const rowsEl = document.getElementById("policy-rows");
   const tag = document.getElementById("policy-mode-tag");
   if (!stateEl || !rowsEl) return;
 
-  if (!policy) {
+  if (!leash) {
     setDot("policy-dot", "offline");
-    stateEl.textContent = "No policy payload";
-    rowsEl.innerHTML = row("Status", "The API did not return policy status.");
+    stateEl.textContent = "No leash payload";
+    rowsEl.innerHTML = row("Status", "The API did not return leash status.");
     return;
   }
 
-  if (policy.program_id) {
+  if (leash.program_id) {
     setHtml(
       "footer-prog",
-      explorerLink(policy.program_explorer_url, shortAddr(policy.program_id))
+      explorerLink(leash.program_explorer_url, shortAddr(leash.program_id))
     );
   }
 
   // local simulator mode
-  if (!policy.devnet_policy_enabled) {
+  if (!leash.devnet_leash_enabled) {
     setDot("policy-dot", "warn");
     if (tag) tag.textContent = "local simulator";
     stateEl.textContent = "Local simulator";
     rowsEl.innerHTML =
       row("Mode", "Off-chain simulator, same rule shape") +
-      row("Program", explorerLink(policy.program_explorer_url, shortAddr(policy.program_id))) +
-      row("Devnet policy", "disabled");
+      row("Program", explorerLink(leash.program_explorer_url, shortAddr(leash.program_id))) +
+      row("Devnet leash", "disabled");
     return;
   }
 
   if (tag) tag.textContent = "devnet anchor";
-  const chain = policy.on_chain;
+  const chain = leash.on_chain;
 
   if (!chain || chain.available === false) {
     setDot("policy-dot", "offline");
     const reason = chain && chain.reason ? chain.reason : "status unavailable";
     stateEl.textContent = "Devnet status unavailable";
     rowsEl.innerHTML =
-      row("Program", explorerLink(policy.program_explorer_url, shortAddr(policy.program_id))) +
+      row("Program", explorerLink(leash.program_explorer_url, shortAddr(leash.program_id))) +
       row("Reason", reason);
     return;
   }
 
   if (!chain.initialized) {
     setDot("policy-dot", "warn");
-    stateEl.textContent = "Policy not initialized";
+    stateEl.textContent = "Leash not initialized";
     rowsEl.innerHTML =
-      row("Program", explorerLink(policy.program_explorer_url, shortAddr(policy.program_id))) +
-      row("Policy PDA", explorerLink(chain.policy_explorer_url, shortAddr(chain.policy_pda))) +
-      row("Next step", "run init-policy");
+      row("Program", explorerLink(leash.program_explorer_url, shortAddr(leash.program_id))) +
+      row("Leash PDA", explorerLink(chain.leash_explorer_url, shortAddr(chain.leash_pda))) +
+      row("Next step", "run npm run devnet:init");
     return;
   }
 
   setDot("policy-dot", chain.halted ? "offline" : "live");
-  stateEl.textContent = chain.halted ? "Halted" : "Active";
+  stateEl.textContent = chain.halted ? "Halted by owner" : "Active";
 
-  const used = microToUsdc(chain.daily_buy_used_microusdc);
-  const limit = microToUsdc(chain.daily_buy_limit_microusdc);
-  const frac = limit > 0 ? used / limit : 0;
+  const spent = lamportsToSol(chain.spent_today_lamports);
+  const cap = lamportsToSol(chain.daily_cap_lamports);
+  const perTx = lamportsToSol(chain.per_tx_cap_lamports);
+  const vault = lamportsToSol(chain.vault_balance_lamports);
+  const frac = cap > 0 ? spent / cap : 0;
   const capKind = frac >= 1 ? "neg" : frac >= 0.7 ? "warn" : "accent";
+  const allowlist = chain.allowlist_enforced
+    ? `${(chain.allowed_recipients || []).length} recipient${(chain.allowed_recipients || []).length === 1 ? "" : "s"}`
+    : "not enforced";
 
   rowsEl.innerHTML =
-    row("Program", explorerLink(policy.program_explorer_url, shortAddr(policy.program_id))) +
-    row("Policy PDA", explorerLink(chain.policy_explorer_url, shortAddr(chain.policy_pda))) +
-    row("Trade sequence", chain.next_trade_seq) +
+    row("Program", explorerLink(leash.program_explorer_url, shortAddr(leash.program_id))) +
+    row("Leash PDA", explorerLink(chain.leash_explorer_url, shortAddr(chain.leash_pda))) +
+    row("Vault", `${explorerLink(chain.vault_explorer_url, shortAddr(chain.vault_pda))} &middot; ${vault.toFixed(4)} SOL`) +
+    row("Per-tx cap", `${perTx.toFixed(4)} SOL`) +
+    row("Allowlist", allowlist) +
+    row("Spends executed", chain.spend_count) +
     `<div class="cap">
        <div class="cap-top">
-         <span class="r-k">Daily BUY used</span>
-         <span class="r-v">${used.toFixed(2)} / ${limit.toFixed(2)} USDC</span>
+         <span class="r-k">Daily budget used</span>
+         <span class="r-v">${spent.toFixed(4)} / ${cap.toFixed(4)} SOL</span>
        </div>
        <div class="meter"><i id="bar-cap"></i></div>
      </div>`;
@@ -332,10 +340,10 @@ async function refresh() {
     setText("m-seq", health.next_trade_sequence ?? "-");
     setText("m-mode", health.policy_mode || "-");
     setText("m-net", health.network || "devnet");
-    if (health.policy_program_id) {
+    if (health.leash_program_id) {
       setHtml(
         "footer-prog",
-        explorerLink(health.policy_program_explorer_url, shortAddr(health.policy_program_id))
+        explorerLink(health.leash_program_explorer_url, shortAddr(health.leash_program_id))
       );
     }
 
@@ -360,7 +368,7 @@ async function refresh() {
 
     setConnection("live", "Live");
     hasLoaded = true;
-    refreshPolicy();
+    refreshLeash();
   } catch (error) {
     setConnection("offline", "API offline");
     setText("m-cycle", "--");
@@ -377,13 +385,13 @@ async function refresh() {
   }
 }
 
-async function refreshPolicy() {
+async function refreshLeash() {
   try {
-    renderPolicy(await fetchJson("/policy"));
+    renderLeash(await fetchJson("/leash"));
   } catch (error) {
     setDot("policy-dot", "offline");
-    setText("policy-state-text", "Policy unavailable");
-    setHtml("policy-rows", row("Status", "The policy endpoint did not respond."));
+    setText("policy-state-text", "Leash unavailable");
+    setHtml("policy-rows", row("Status", "The leash endpoint did not respond."));
   }
 }
 
