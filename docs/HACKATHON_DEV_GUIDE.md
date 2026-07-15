@@ -9,7 +9,7 @@ Hackathon speed is not an excuse for amateur engineering. Work here should look 
 Optimize for a credible demo, not a sprawling platform. Every change should make one of these stronger:
 
 - local scaffold reliability
-- policy-controller clarity
+- leash program clarity
 - devnet readiness
 - demo quality
 
@@ -64,12 +64,12 @@ Ship when:
 - the code is understandable without verbal explanation
 - state transitions and edge cases were actually checked, not assumed
 
-### 2. Policy Controller
+### 2. Leash Program
 
 Good targets:
 
-- tighten rule enforcement in `programs/policy_controller/src/lib.rs`
-- expand TypeScript coverage in `tests/anchor/policy_controller.ts`
+- tighten rule enforcement in `programs/leash/src/lib.rs`
+- expand TypeScript coverage in `tests/anchor/leash.ts`
 - improve deployment scripts under `scripts/`
 
 Ship when:
@@ -126,7 +126,7 @@ Use the repo scripts first:
 powershell -ExecutionPolicy Bypass -File scripts/setup-devnet.ps1
 powershell -ExecutionPolicy Bypass -File scripts/preflight-anchor.ps1
 powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1
-powershell -ExecutionPolicy Bypass -File scripts/init-policy.ps1
+powershell -ExecutionPolicy Bypass -File scripts/init-leash.ps1
 powershell -ExecutionPolicy Bypass -File scripts/smoke-devnet.ps1
 ```
 
@@ -198,7 +198,7 @@ Each commit should tell a coherent engineering story. A reviewer should be able 
 
 - Python and x402/Anchor Python work are split across different requirements files for dependency reasons
 - Anchor runtime validation is not the default CI path yet
-- The Python executor uses the local simulator by default and a fail-closed Anchor TypeScript command bridge when `ENABLE_DEVNET_POLICY=true`
+- The Python executor uses the local simulator by default and a fail-closed Anchor TypeScript command bridge when `ENABLE_DEVNET_LEASH=true`
 - Native `anchorpy` submission is still pending
 
 Build around those constraints instead of pretending they do not exist.
