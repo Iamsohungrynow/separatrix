@@ -281,6 +281,98 @@ class Database:
         )
         self._commit()
 
+    def record_prices(
+        self,
+        prices: dict[str, float],
+        source: str,
+        recorded_at: str | None = None,
+    ) -> int:
+        """Record a batch of asset prices, ignoring duplicates.
+
+        The UNIQUE(asset, recorded_at, source) constraint plus INSERT OR IGNORE
+        makes repeated backfills idempotent. Returns the number of rows actually
+        inserted (duplicates are silently skipped).
+        """
+        timestamp = recorded_at if recorded_at is not None else utc_now_iso()
+        inserted = 0
+        for asset, price in prices.items():
+            cursor = self.connection.execute(
+                """
+                INSERT OR IGNORE INTO price_history (asset, price_usdc, source, recorded_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (asset, float(price), source, timestamp),
+            )
+            inserted += cursor.rowcount
+        self._commit()
+        return inserted
+
+    def price_history(
+        self,
+        asset: str,
+        limit: int = 500,
+        source: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return the most recent price rows for an asset, newest first."""
+        if source is None:
+            rows = self.connection.execute(
+                """
+                SELECT id, asset, price_usdc, source, recorded_at
+                FROM price_history
+                WHERE asset = ?
+                ORDER BY recorded_at DESC, id DESC
+                LIMIT ?
+                """,
+                (asset, limit),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                """
+                SELECT id, asset, price_usdc, source, recorded_at
+                FROM price_history
+                WHERE asset = ? AND source = ?
+                ORDER BY recorded_at DESC, id DESC
+                LIMIT ?
+                """,
+                (asset, source, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def price_matrix(
+        self,
+        assets: list[str],
+        source: str | None = None,
+    ) -> dict[str, list[tuple[str, float]]]:
+        """Return {asset: [(recorded_at, price_usdc), ...]} oldest-first.
+
+        Every requested asset is present in the result, with an empty list when
+        no history exists. Intended as the raw input for returns/covariance work.
+        """
+        matrix: dict[str, list[tuple[str, float]]] = {}
+        for asset in assets:
+            if source is None:
+                rows = self.connection.execute(
+                    """
+                    SELECT recorded_at, price_usdc
+                    FROM price_history
+                    WHERE asset = ?
+                    ORDER BY recorded_at ASC, id ASC
+                    """,
+                    (asset,),
+                ).fetchall()
+            else:
+                rows = self.connection.execute(
+                    """
+                    SELECT recorded_at, price_usdc
+                    FROM price_history
+                    WHERE asset = ? AND source = ?
+                    ORDER BY recorded_at ASC, id ASC
+                    """,
+                    (asset, source),
+                ).fetchall()
+            matrix[asset] = [(row["recorded_at"], row["price_usdc"]) for row in rows]
+        return matrix
+
     def latest_pnl(self, starting_cash_usdc: float) -> dict[str, Any]:
         row = self.connection.execute(
             """

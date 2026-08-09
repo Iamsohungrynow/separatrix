@@ -53,6 +53,7 @@ async def _run_live_cycle(
     db.record_state(status="ingesting")
 
     # --- 1. Fetch prices (Jupiter primary, CoinGecko fallback) ---
+    price_source = "jupiter"
     try:
         prices = await fetch_prices(assets=settings.tracked_assets)
     except Exception as exc:
@@ -60,6 +61,7 @@ async def _run_live_cycle(
         prices = {}
 
     if not prices:
+        price_source = "coingecko"
         try:
             prices = await fetch_fallback_prices(assets=settings.tracked_assets)
         except Exception as exc:
@@ -71,7 +73,8 @@ async def _run_live_cycle(
         db.record_state(status="idle")
         return
 
-    logger.info("prices: %s", json.dumps(prices, sort_keys=True))
+    db.record_prices(prices, source=price_source)
+    logger.info("prices (%s): %s", price_source, json.dumps(prices, sort_keys=True))
 
     # --- 2. Fetch research items ---
     items: list[dict[str, str]] = []
@@ -162,7 +165,7 @@ async def _run_live_cycle(
         signal.validated = True
         signal.validation_details = validation.get("checks", {})
 
-        result = executor.execute(signal=signal, price_usdc=asset_price)
+        result = executor.execute(signal=signal, price_usdc=asset_price, market_prices=prices)
         logger.info(
             "%s %s: %s (qty=%.6f)",
             signal.action, signal.asset, result.reason,
