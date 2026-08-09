@@ -373,6 +373,31 @@ class Database:
             matrix[asset] = [(row["recorded_at"], row["price_usdc"]) for row in rows]
         return matrix
 
+    def latest_prices(self, assets: list[str] | None = None) -> dict[str, float]:
+        """The most recently recorded price per asset (any source).
+
+        "Most recent" means the newest recorded_at, not the newest row id, so
+        historical backfills inserted after live ticks never shadow them.
+        """
+        rows = self.connection.execute(
+            """
+            SELECT asset, price_usdc FROM (
+                SELECT asset, price_usdc,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY asset
+                           ORDER BY recorded_at DESC, id DESC
+                       ) AS rn
+                FROM price_history
+            )
+            WHERE rn = 1
+            """
+        ).fetchall()
+        prices = {row["asset"]: row["price_usdc"] for row in rows}
+        if assets is not None:
+            wanted = set(assets)
+            prices = {asset: price for asset, price in prices.items() if asset in wanted}
+        return prices
+
     def latest_pnl(self, starting_cash_usdc: float) -> dict[str, Any]:
         row = self.connection.execute(
             """

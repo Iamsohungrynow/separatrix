@@ -233,3 +233,39 @@ fn f32_models_solve() {
     assert_eq!(r.spins[2], r.spins[3]);
     assert_eq!(r.spins[0], 1);
 }
+
+/// At f32, incremental-energy drift must never leak into results: every
+/// solver's reported energy must be *exactly* `model.energy(&spins)` — the
+/// number is recomputed from the configuration, not accumulated.
+#[test]
+fn f32_reported_energy_is_exactly_the_energy_of_the_spins() {
+    let n = 24;
+    let mut m = IsingModel::<f32>::new(n);
+    let mut state: u64 = 99;
+    let mut next = move || {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        ((state >> 33) as f32 / (1u64 << 31) as f32) * 2.0 - 1.0
+    };
+    for i in 0..n {
+        for j in (i + 1)..n {
+            m.set_coupling(i, j, next());
+        }
+        m.set_field(i, next() * 0.5);
+    }
+
+    let solvers = [
+        Solver::Sb(SbConfig { variant: SbVariant::Ballistic, steps: 1000, replicas: 4, seed: 5, ..SbConfig::default() }),
+        Solver::Sb(SbConfig { variant: SbVariant::Discrete, steps: 1000, replicas: 4, seed: 5, ..SbConfig::default() }),
+        Solver::Sa(SaConfig { sweeps: 2000, restarts: 4, seed: 5, ..SaConfig::default() }),
+        Solver::Pt(PtConfig { sweeps: 2000, replicas: 8, seed: 5, ..PtConfig::default() }),
+    ];
+    for solver in &solvers {
+        let r = solver.solve(&m).unwrap();
+        assert_eq!(
+            r.energy,
+            m.energy(&r.spins),
+            "{}: reported energy is not the energy of the reported spins",
+            solver.name()
+        );
+    }
+}

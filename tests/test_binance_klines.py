@@ -13,6 +13,7 @@ from agent.db.database import Database
 from agent.ingestion.binance_klines import (
     BINANCE_SYMBOLS,
     backfill,
+    symbols_for,
     build_parser,
     fetch_month,
     month_range,
@@ -253,8 +254,9 @@ class BackfillTestCase(unittest.IsolatedAsyncioTestCase):
         shutil.rmtree(case_dir, ignore_errors=True)
 
     @patch("agent.ingestion.binance_klines.fetch_month")
-    async def test_rndr_alias_maps_to_renderusdt(self, mock_fetch: AsyncMock) -> None:
-        """The demo-default RNDR ticker backfills via the RENDERUSDT symbol."""
+    async def test_rndr_fetches_both_rebrand_symbols(self, mock_fetch: AsyncMock) -> None:
+        """RNDR history spans the rebrand: both RENDERUSDT and the pre-rebrand
+        RNDRUSDT dumps are fetched, and overlap months dedupe."""
         database, case_dir = self._make_db("test_backfill_rndr")
         mock_fetch.return_value = list(EXPECTED_BARS)
 
@@ -263,9 +265,12 @@ class BackfillTestCase(unittest.IsolatedAsyncioTestCase):
         history = database.price_history("RNDR")
         database.close()
 
+        # Both symbols returned the same bars; UNIQUE constraint keeps 2 rows.
         self.assertEqual(inserted, 2)
+        self.assertEqual(len(history), 2)
         self.assertEqual(history[0]["asset"], "RNDR")  # stored under the ticker
-        mock_fetch.assert_awaited_with("RENDERUSDT", 2024, 1)
+        mock_fetch.assert_any_await("RENDERUSDT", 2024, 1)
+        mock_fetch.assert_any_await("RNDRUSDT", 2024, 1)
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
@@ -289,6 +294,11 @@ class SymbolUniverseTestCase(unittest.TestCase):
     def test_render_rebrand(self) -> None:
         self.assertEqual(BINANCE_SYMBOLS["RENDER"], "RENDERUSDT")
         self.assertEqual(BINANCE_SYMBOLS["RNDR"], "RENDERUSDT")
+        # Pre-rebrand dumps (2021-11..2024-07) only exist under RNDRUSDT.
+        self.assertEqual(symbols_for("RNDR"), ("RENDERUSDT", "RNDRUSDT"))
+        self.assertEqual(symbols_for("RENDER"), ("RENDERUSDT", "RNDRUSDT"))
+        self.assertEqual(symbols_for("SOL"), ("SOLUSDT",))
+        self.assertEqual(symbols_for("DOESNOTEXIST"), ())
 
 
 class CliParserTestCase(unittest.TestCase):

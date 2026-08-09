@@ -19,9 +19,11 @@ BULK_KLINES_URL = (
     "{symbol}/1d/{symbol}-1d-{year:04d}-{month:02d}.zip"
 )
 
-# Map ticker -> Binance spot symbol for the widened portfolio universe:
-# majors plus the top Solana-ecosystem tokens. All pairs verified against
-# data.binance.vision (missing pre-listing months simply 404 and are skipped).
+# Map ticker -> current Binance spot symbol for the widened portfolio
+# universe: majors plus the top Solana-ecosystem tokens. All pairs verified
+# against data.binance.vision. Missing months 404 and are skipped — but note
+# that a 404 does not always mean "pre-listing": renamed symbols keep their
+# older dumps under the previous name (see BINANCE_SYMBOL_HISTORY).
 BINANCE_SYMBOLS: dict[str, str] = {
     # Majors / L1s
     "BTC": "BTCUSDT",
@@ -57,7 +59,7 @@ BINANCE_SYMBOLS: dict[str, str] = {
     "TIA": "TIAUSDT",
     # AI / DePIN
     "FET": "FETUSDT",
-    "RENDER": "RENDERUSDT",  # RNDR was rebranded to RENDER on Binance
+    "RENDER": "RENDERUSDT",  # RNDR was rebranded to RENDER on Binance 2024-07
     "RNDR": "RENDERUSDT",  # alias so the demo-default ticker backfills too
     "IO": "IOUSDT",
     # Solana ecosystem
@@ -68,6 +70,24 @@ BINANCE_SYMBOLS: dict[str, str] = {
     "BONK": "BONKUSDT",
     "WIF": "WIFUSDT",
 }
+
+# Renamed symbols keep their pre-rename history under the old symbol name:
+# RENDERUSDT dumps only exist from 2024-07, while 2021-11..2024-07 lives under
+# RNDRUSDT. A full backfill must fetch every name the listing ever had; the
+# UNIQUE(asset, recorded_at, source) constraint dedupes any overlap month.
+BINANCE_SYMBOL_HISTORY: dict[str, tuple[str, ...]] = {
+    "RENDER": ("RENDERUSDT", "RNDRUSDT"),
+    "RNDR": ("RENDERUSDT", "RNDRUSDT"),
+}
+
+
+def symbols_for(asset: str) -> tuple[str, ...]:
+    """Every Binance symbol whose dumps hold history for this ticker."""
+    if asset in BINANCE_SYMBOL_HISTORY:
+        return BINANCE_SYMBOL_HISTORY[asset]
+    symbol = BINANCE_SYMBOLS.get(asset)
+    return (symbol,) if symbol else ()
+
 
 REQUEST_TIMEOUT = 30.0
 
@@ -168,38 +188,40 @@ async def backfill(db, assets: list[str], start: str, end: str) -> int:
     total_inserted = 0
 
     for asset in assets:
-        symbol = BINANCE_SYMBOLS.get(asset)
-        if symbol is None:
+        symbols = symbols_for(asset)
+        if not symbols:
             logger.warning("no Binance symbol for ticker %s — skipping", asset)
             continue
 
         asset_inserted = 0
-        for year, month in months:
-            try:
-                bars = await fetch_month(symbol, year, month)
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 404:
-                    logger.info(
-                        "no dump for %s %04d-%02d (404) — skipping", symbol, year, month
-                    )
-                else:
+        for symbol in symbols:
+            for year, month in months:
+                try:
+                    bars = await fetch_month(symbol, year, month)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 404:
+                        logger.info(
+                            "no dump for %s %04d-%02d (404) — skipping", symbol, year, month
+                        )
+                    else:
+                        logger.warning(
+                            "fetch failed for %s %04d-%02d: %s — skipping",
+                            symbol, year, month, exc,
+                        )
+                    continue
+                except httpx.HTTPError as exc:
                     logger.warning(
                         "fetch failed for %s %04d-%02d: %s — skipping", symbol, year, month, exc
                     )
-                continue
-            except httpx.HTTPError as exc:
-                logger.warning(
-                    "fetch failed for %s %04d-%02d: %s — skipping", symbol, year, month, exc
-                )
-                continue
+                    continue
 
-            with db.transaction():
-                for date_iso, close in bars:
-                    asset_inserted += db.record_prices(
-                        {asset: close}, source="binance", recorded_at=date_iso
-                    )
+                with db.transaction():
+                    for date_iso, close in bars:
+                        asset_inserted += db.record_prices(
+                            {asset: close}, source="binance", recorded_at=date_iso
+                        )
 
-        logger.info("backfilled %s (%s): %d new rows", asset, symbol, asset_inserted)
+        logger.info("backfilled %s (%s): %d new rows", asset, "+".join(symbols), asset_inserted)
         total_inserted += asset_inserted
 
     return total_inserted
