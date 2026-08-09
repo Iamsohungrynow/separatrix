@@ -53,6 +53,53 @@ class ExecutorTestCase(unittest.TestCase):
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
+    def test_pnl_marks_all_positions_to_market(self) -> None:
+        """A trade in one asset must mark every other position at market, not avg cost."""
+        case_dir = Path(".tmp-tests") / "test_executor_marks"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+        database.ensure_cash(1000.0)
+
+        executor = PaperTradeExecutor(
+            db=database,
+            leash_client=LocalLeashClient(
+                per_tx_cap_sol=0.005,
+                daily_cap_sol=0.01,
+            ),
+            starting_cash_usdc=1000.0,
+        )
+
+        def buy(asset: str, price: float, marks: dict[str, float] | None = None):
+            return executor.execute(
+                Signal(
+                    asset=asset,
+                    action="BUY",
+                    sentiment=0.8,
+                    confidence=0.75,
+                    position_size_usdc=5.0,
+                    reasoning="test",
+                ),
+                price_usdc=price,
+                market_prices=marks,
+            )
+
+        self.assertTrue(buy("RNDR", 10.0).approved)
+        # RNDR has moved to 12.0 by the time the SOL buy happens.
+        self.assertTrue(buy("SOL", 100.0, marks={"RNDR": 12.0, "SOL": 100.0}).approved)
+
+        pnl = database.latest_pnl(1000.0)
+        database.close()
+
+        # 0.5 RNDR * (12 - 10) = 1.0 unrealized; SOL bought at market = 0.
+        self.assertAlmostEqual(pnl["unrealized_pnl"], 1.0)
+        # cash 990 + 0.5 * 12 + 0.05 * 100 = 1001
+        self.assertAlmostEqual(pnl["total_value_usdc"], 1001.0)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
     def test_sell_trade_realizes_pnl_and_reduces_position(self) -> None:
         case_dir = Path(".tmp-tests") / "test_executor_sell"
         shutil.rmtree(case_dir, ignore_errors=True)
