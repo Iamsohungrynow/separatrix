@@ -294,7 +294,13 @@ def main() -> None:
             validation_details={"mode": "local-demo"},
         )
 
-        result = executor.execute(signal=demo_signal, price_usdc=args.demo_price)
+        # Mark other open positions at their last recorded price so the demo
+        # trade's pnl snapshot doesn't fall back to stale avg-cost marks.
+        result = executor.execute(
+            signal=demo_signal,
+            price_usdc=args.demo_price,
+            market_prices=db.latest_prices(),
+        )
         db.record_state(status="idle")
         logger.info("demo execution result: %s", json.dumps(asdict(result), sort_keys=True))
         logger.info("latest pnl: %s", json.dumps(db.latest_pnl(settings.starting_paper_cash_usdc), sort_keys=True))

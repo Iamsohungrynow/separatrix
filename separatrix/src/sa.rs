@@ -128,9 +128,15 @@ pub fn solve<T: Float + Send + Sync>(model: &IsingModel<T>, cfg: &SaConfig) -> S
             }
         }
 
+        // The incremental accumulator only *selects* the best configuration;
+        // the reported energy is recomputed from the spins so the contract
+        // "energy is the Ising energy of spins" holds exactly. (At f32, the
+        // accumulator drifts over thousands of updates and can otherwise
+        // report energies below the true ground state.)
+        let energy = model.energy(&best_spins);
         SolveResult {
             spins: best_spins,
-            energy: best_energy,
+            energy,
             steps: cfg.sweeps as u64,
             seed: cfg.seed,
             replica: r,

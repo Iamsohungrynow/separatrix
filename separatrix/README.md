@@ -4,10 +4,10 @@
 
 Simulated Bifurcation (SB) is the Toshiba-lineage optimization algorithm derived
 from the classical limit of Kerr-parametric-oscillator networks (Goto et al.,
-*Science Advances* 2019 & 2021) — the same algorithm family Toshiba runs in
-production trading systems. As the pump ramps, each oscillator crosses the
-*separatrix* — the boundary between basins of attraction — and commits to spin
-+1 or −1. That crossing is the name.
+*Science Advances* 2019 & 2021) — the algorithm family Toshiba demonstrated in
+a 30 µs FPGA FX-arbitrage prototype and commercializes as the SQBM+ solver. As
+the pump ramps, each oscillator crosses the *separatrix* — the boundary between
+basins of attraction — and commits to spin +1 or −1. That crossing is the name.
 
 ## The honesty contract
 
@@ -61,9 +61,9 @@ floats are for dynamics, integers are for keeping score.
 
 `cargo bench` runs criterion throughput benchmarks on dense spin glasses.
 Quality benchmarks (optimality-gap tables on portfolio instances, SB vs SA vs
-PT vs exact MIP) are produced by the Separatrix workbench in the parent repo
-and published with the methodology attached. No numbers are quoted here that
-the harness didn't produce.
+PT vs exact MIP) will come from the Separatrix workbench, which does not exist
+yet. Until it ships and its methodology is published alongside its numbers,
+this crate quotes no performance or quality figures anywhere.
 
 ## Correctness
 
@@ -86,9 +86,10 @@ that **no heuristic ever reports an energy below the exact ground state**.
 
 ## Status
 
-v0.1: solver core. Part of the Separatrix project (quantum-inspired portfolio
-engine with an on-chain-verified track record) living alongside
-[Leash](../README.md) in this repo. The portfolio workbench, walk-forward
-harness, and the on-chain commitment/scoring program land next.
+v0.1 is the solver core, and what you see in this crate is all that exists
+today. The wider Separatrix project — a portfolio workbench, a walk-forward
+harness, and an on-chain commitment/scoring program on Solana — is planned
+next in the parent repo alongside [Leash](../README.md). None of it ships yet,
+and nothing here claims results from it.
 
 License: MIT

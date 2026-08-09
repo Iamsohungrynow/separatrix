@@ -165,9 +165,12 @@ pub fn solve<T: Float + Send + Sync>(model: &IsingModel<T>, cfg: &PtConfig) -> S
         round += 1;
     }
 
+    // Rescore the winner from its spins: the incremental accumulators are for
+    // selection only, and at f32 their drift must not leak into the result.
+    let energy = model.energy(&best_spins);
     SolveResult {
         spins: best_spins,
-        energy: best_energy,
+        energy,
         steps: cfg.sweeps as u64,
         seed: cfg.seed,
         replica: best_slot,

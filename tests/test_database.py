@@ -351,6 +351,27 @@ class DatabaseTestCase(unittest.TestCase):
             [("2026-01-01T00:00:00Z", 100.0), ("2026-01-02T00:00:00Z", 110.0)],
         )
 
+    def test_latest_prices_picks_newest_recorded_at_not_newest_row(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_latest_prices"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        # Live tick first, then a historical backfill row inserted LATER with
+        # an older recorded_at — the live tick must still win.
+        database.record_prices({"SOL": 150.0}, source="jupiter", recorded_at="2026-02-01T12:00:00Z")
+        database.record_prices({"SOL": 100.0}, source="binance", recorded_at="2026-01-01T00:00:00Z")
+        database.record_prices({"PYTH": 0.4}, source="binance", recorded_at="2026-01-01T00:00:00Z")
+
+        everything = database.latest_prices()
+        filtered = database.latest_prices(assets=["SOL", "MISSING"])
+        database.close()
+
+        self.assertEqual(everything, {"SOL": 150.0, "PYTH": 0.4})
+        self.assertEqual(filtered, {"SOL": 150.0})
+
         shutil.rmtree(case_dir, ignore_errors=True)
 
     def test_upsert_position_replaces_existing_row(self) -> None:

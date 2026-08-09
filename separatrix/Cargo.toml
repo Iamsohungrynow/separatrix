@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 description = "Quantum-inspired Ising/QUBO solvers: simulated bifurcation (bSB/dSB) with honest classical baselines (simulated annealing, parallel tempering, exact)."
 repository = "https://github.com/Iamsohungrynow/leash"
-keywords = ["ising", "qubo", "simulated-bifurcation", "annealing", "optimization"]
+keywords = ["ising", "qubo", "annealing", "optimization", "solver"]
 categories = ["algorithms", "science", "mathematics"]
 
 # Standalone workspace on purpose: the surrounding repo's root workspace is
