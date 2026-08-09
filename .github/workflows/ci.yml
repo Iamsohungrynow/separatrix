@@ -29,3 +29,21 @@ jobs:
         run: npm ci
       - name: Run TypeScript checks
         run: npm run lint:ts
+
+  separatrix-crate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: separatrix
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - name: Test (unit, property, doc)
+        run: cargo test
+      - name: Clippy (warnings are errors)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Check wasm32 build (no default features)
+        run: cargo check --no-default-features --target wasm32-unknown-unknown
