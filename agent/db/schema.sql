@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS pnl_snapshots (
     recorded_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS price_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset TEXT NOT NULL,
+    price_usdc REAL NOT NULL,
+    source TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    UNIQUE(asset, recorded_at, source)
+);
+
 CREATE TABLE IF NOT EXISTS paid_requests (
     payment_ref TEXT PRIMARY KEY,
     endpoint TEXT NOT NULL,
@@ -80,3 +89,4 @@ CREATE TABLE IF NOT EXISTS paid_requests (
 CREATE INDEX IF NOT EXISTS idx_signals_created_at ON signals(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_executed_at ON trades(executed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pnl_recorded_at ON pnl_snapshots(recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_price_history_asset_recorded_at ON price_history(asset, recorded_at);
