@@ -221,10 +221,10 @@ class NewsRssTestCase(unittest.IsolatedAsyncioTestCase):
 # ---------------------------------------------------------------------------
 
 def _mock_jupiter_response(data: dict) -> MagicMock:
-    """Build a fake httpx.Response with the given data payload."""
+    """Build a fake httpx.Response with a Price v3 payload (top-level mint map)."""
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
-    resp.json.return_value = {"data": data}
+    resp.json.return_value = data
     return resp
 
 
@@ -238,8 +238,8 @@ class JupiterPriceTestCase(unittest.IsolatedAsyncioTestCase):
         rndr_mint = TOKEN_MINTS["RNDR"]
 
         data = {
-            sol_mint: {"id": sol_mint, "price": "148.32"},
-            rndr_mint: {"id": rndr_mint, "price": "7.55"},
+            sol_mint: {"usdPrice": 148.32, "decimals": 9},
+            rndr_mint: {"usdPrice": 7.55, "decimals": 8},
         }
 
         mock_client = AsyncMock()
@@ -259,7 +259,7 @@ class JupiterPriceTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_fetch_specific_assets(self, mock_client_cls: MagicMock) -> None:
         """Only requested tickers are queried."""
         sol_mint = TOKEN_MINTS["SOL"]
-        data = {sol_mint: {"id": sol_mint, "price": "150.00"}}
+        data = {sol_mint: {"usdPrice": 150.00, "decimals": 9}}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = _mock_jupiter_response(data)
@@ -279,7 +279,7 @@ class JupiterPriceTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_null_price_skipped(self, mock_client_cls: MagicMock) -> None:
         """Tokens with null prices are omitted from results."""
         sol_mint = TOKEN_MINTS["SOL"]
-        data = {sol_mint: {"id": sol_mint, "price": None}}
+        data = {sol_mint: {"usdPrice": None, "decimals": 9}}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = _mock_jupiter_response(data)
@@ -294,7 +294,7 @@ class JupiterPriceTestCase(unittest.IsolatedAsyncioTestCase):
     async def test_extra_mints(self, mock_client_cls: MagicMock) -> None:
         """Extra mint addresses can be passed for tokens not in the built-in map."""
         fake_mint = "FAKEaddress111111111111111111111111111111111"
-        data = {fake_mint: {"id": fake_mint, "price": "1.23"}}
+        data = {fake_mint: {"usdPrice": 1.23, "decimals": 6}}
 
         mock_client = AsyncMock()
         mock_client.get.return_value = _mock_jupiter_response(data)
