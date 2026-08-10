@@ -22,11 +22,19 @@ class PaperTradeExecutor:
     sol_per_usdc_budget: float = 0.001
     spend_recipient: str | None = None
 
-    def execute(self, signal: Signal, price_usdc: float) -> ExecutionResult:
+    def execute(
+        self,
+        signal: Signal,
+        price_usdc: float,
+        market_prices: dict[str, float] | None = None,
+    ) -> ExecutionResult:
         self.db.ensure_cash(self.starting_cash_usdc)
         precheck_failure = self._precheck(signal, price_usdc)
         if precheck_failure is not None:
             return ExecutionResult(approved=False, reason=precheck_failure)
+
+        marks = dict(market_prices or {})
+        marks[signal.asset] = price_usdc
 
         if signal.action == "BUY":
             decision = self.leash_client.request_spend(
@@ -44,9 +52,9 @@ class PaperTradeExecutor:
         sequence = self.db.get_next_trade_sequence()
         with self.db.transaction():
             if signal.action == "BUY":
-                result = self._execute_buy(signal, price_usdc, decision.tx_signature)
+                result = self._execute_buy(signal, price_usdc, decision.tx_signature, marks)
             else:
-                result = self._execute_sell(signal, price_usdc, decision.tx_signature)
+                result = self._execute_sell(signal, price_usdc, decision.tx_signature, marks)
 
             if result.approved:
                 self.db.set_next_trade_sequence(sequence + 1)
@@ -74,7 +82,13 @@ class PaperTradeExecutor:
             return "NO_POSITION"
         return None
 
-    def _execute_buy(self, signal: Signal, price_usdc: float, tx_signature: str | None) -> ExecutionResult:
+    def _execute_buy(
+        self,
+        signal: Signal,
+        price_usdc: float,
+        tx_signature: str | None,
+        marks: dict[str, float],
+    ) -> ExecutionResult:
         cash = self.db.get_cash(self.starting_cash_usdc)
         amount = signal.position_size_usdc
 
@@ -96,7 +110,7 @@ class PaperTradeExecutor:
         )
         self.db.set_cash(cash - amount)
         self.db.upsert_position(Position(asset=signal.asset, quantity=total_quantity, avg_cost=average_cost))
-        self._record_pnl(price_usdc, realized_delta=0.0, asset=signal.asset)
+        self._record_pnl(marks, realized_delta=0.0)
 
         return ExecutionResult(
             approved=True,
@@ -105,7 +119,13 @@ class PaperTradeExecutor:
             quantity=quantity,
         )
 
-    def _execute_sell(self, signal: Signal, price_usdc: float, tx_signature: str | None) -> ExecutionResult:
+    def _execute_sell(
+        self,
+        signal: Signal,
+        price_usdc: float,
+        tx_signature: str | None,
+        marks: dict[str, float],
+    ) -> ExecutionResult:
         position = self.db.get_position(signal.asset)
         requested_quantity = signal.position_size_usdc / price_usdc
         quantity = min(position.quantity, requested_quantity)
@@ -129,7 +149,7 @@ class PaperTradeExecutor:
         self.db.upsert_position(
             Position(asset=signal.asset, quantity=remaining_quantity, avg_cost=remaining_avg_cost)
         )
-        self._record_pnl(price_usdc, realized_delta=realized_pnl, asset=signal.asset)
+        self._record_pnl(marks, realized_delta=realized_pnl)
 
         return ExecutionResult(
             approved=True,
@@ -139,17 +159,20 @@ class PaperTradeExecutor:
             realized_pnl=realized_pnl,
         )
 
-    def _record_pnl(self, market_price_usdc: float, realized_delta: float, asset: str = "") -> None:
+    def _record_pnl(self, marks: dict[str, float], realized_delta: float) -> None:
+        """Snapshot portfolio value with every position marked to market.
+
+        Positions absent from ``marks`` fall back to average cost, which
+        understates unrealized PnL — callers should pass the full price map.
+        """
         cash = self.db.get_cash(self.starting_cash_usdc)
         positions = self.db.list_positions()
         market_value = 0.0
         unrealized_pnl = 0.0
         for p in positions:
-            if p["asset"] == asset:
-                market_value += p["quantity"] * market_price_usdc
-                unrealized_pnl += p["quantity"] * (market_price_usdc - p["avg_cost"])
-            else:
-                market_value += p["quantity"] * p["avg_cost"]
+            mark = marks.get(p["asset"], p["avg_cost"])
+            market_value += p["quantity"] * mark
+            unrealized_pnl += p["quantity"] * (mark - p["avg_cost"])
         total_value = cash + market_value
         realized_pnl = 0.0
         latest = self.db.latest_pnl(self.starting_cash_usdc)

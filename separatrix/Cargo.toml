@@ -1,0 +1,40 @@
+[package]
+name = "separatrix"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Quantum-inspired Ising/QUBO solvers: simulated bifurcation (bSB/dSB) with honest classical baselines (simulated annealing, parallel tempering, exact)."
+repository = "https://github.com/Iamsohungrynow/leash"
+keywords = ["ising", "qubo", "annealing", "optimization", "solver"]
+categories = ["algorithms", "science", "mathematics"]
+
+# Standalone workspace on purpose: the surrounding repo's root workspace is
+# pinned to the Solana SBF toolchain (cargo 1.75, lockfile v3) and this crate's
+# dependencies must never enter that lockfile.
+[workspace]
+
+[features]
+default = ["parallel"]
+# Multi-threaded restarts/replicas via rayon. Disable for wasm32 builds.
+parallel = ["dep:rayon"]
+
+[dependencies]
+num-traits = "0.2"
+rand_core = "0.6"
+rand_xoshiro = "0.6"
+rayon = { version = "1.10", optional = true }
+
+[dev-dependencies]
+proptest = "1"
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "solvers"
+harness = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.bench]
+lto = "thin"
