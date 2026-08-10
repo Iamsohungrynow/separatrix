@@ -1,5 +1,8 @@
 [workspace]
 members = ["programs/leash"]
+# The separatrix crate is its own workspace: its modern dependency tree must
+# never enter this lockfile, which the SBF toolchain's cargo 1.75 parses (v3).
+exclude = ["separatrix"]
 resolver = "2"
 
 [profile.release]

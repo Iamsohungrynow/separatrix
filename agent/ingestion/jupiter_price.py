@@ -7,8 +7,10 @@ import httpx
 
 logger = logging.getLogger("leash.ingestion.jupiter")
 
-# Jupiter Price API v2 — free, no key required.
-JUPITER_PRICE_URL = "https://api.jup.ag/price/v2"
+# Jupiter Price API v3 (lite tier) — free, no key required.
+# v2 (api.jup.ag/price/v2) was decommissioned and now returns 404; v3 responds
+# with a top-level {mint: {"usdPrice": ...}} map instead of v2's {"data": ...}.
+JUPITER_PRICE_URL = "https://lite-api.jup.ag/price/v3"
 
 # Map human-readable ticker → Solana token mint address.
 # These are the canonical SPL mints on mainnet (Jupiter resolves them for
@@ -72,15 +74,14 @@ async def fetch_prices(
         response.raise_for_status()
         body: dict[str, Any] = response.json()
 
-    data: dict[str, Any] = body.get("data", {})
     prices: dict[str, float] = {}
 
     for mint_addr, ticker in mint_to_ticker.items():
-        entry = data.get(mint_addr)
+        entry = body.get(mint_addr)
         if entry is None:
             logger.debug("jupiter returned no entry for %s (%s)", ticker, mint_addr)
             continue
-        raw_price = entry.get("price")
+        raw_price = entry.get("usdPrice")
         if raw_price is None:
             logger.debug("jupiter returned null price for %s", ticker)
             continue

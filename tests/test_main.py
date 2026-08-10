@@ -425,6 +425,83 @@ class MainEntryPointTestCase(unittest.TestCase):
         self.assertAlmostEqual(cash, 1000.0)
         shutil.rmtree(case_dir, ignore_errors=True)
 
+    def test_main_live_records_jupiter_prices(self) -> None:
+        """A live cycle stores the fetched prices with source='jupiter'."""
+        with patch.dict("os.environ", {}, clear=True):
+            case_dir = Path(".tmp-tests") / "test_main_live_prices_jupiter"
+            shutil.rmtree(case_dir, ignore_errors=True)
+            case_dir.mkdir(parents=True, exist_ok=True)
+
+            env_path = case_dir / ".env"
+            db_path = case_dir / "state.db"
+            env_path.write_text(
+                "\n".join([
+                    f"SQLITE_PATH={db_path}",
+                    "GROQ_API_KEY=test-key-fake",
+                ]),
+                encoding="utf-8",
+            )
+
+            # Prices succeed; no research items, so the cycle aborts AFTER
+            # prices are recorded — scoring never runs.
+            with patch.object(sys, "argv", ["agent.main", "--env-file", str(env_path), "--live"]), \
+                 patch("agent.ingestion.jupiter_price.fetch_prices",
+                       AsyncMock(return_value={"SOL": 150.0, "RNDR": 8.0})), \
+                 patch("agent.ingestion.coingecko.fetch_fallback_prices", AsyncMock(return_value={})), \
+                 patch("agent.ingestion.arxiv.fetch_arxiv", AsyncMock(return_value=[])), \
+                 patch("agent.ingestion.news_rss.fetch_news_rss", AsyncMock(return_value=[])):
+                main()
+
+            database = Database(db_path)
+            sol_rows = database.price_history("SOL")
+            rndr_rows = database.price_history("RNDR")
+            database.close()
+
+        self.assertEqual(len(sol_rows), 1)
+        self.assertEqual(sol_rows[0]["source"], "jupiter")
+        self.assertAlmostEqual(sol_rows[0]["price_usdc"], 150.0)
+        self.assertTrue(sol_rows[0]["recorded_at"])
+        self.assertEqual(len(rndr_rows), 1)
+        self.assertAlmostEqual(rndr_rows[0]["price_usdc"], 8.0)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_main_live_records_coingecko_fallback_prices(self) -> None:
+        """When Jupiter fails, fallback prices are stored with source='coingecko'."""
+        with patch.dict("os.environ", {}, clear=True):
+            case_dir = Path(".tmp-tests") / "test_main_live_prices_coingecko"
+            shutil.rmtree(case_dir, ignore_errors=True)
+            case_dir.mkdir(parents=True, exist_ok=True)
+
+            env_path = case_dir / ".env"
+            db_path = case_dir / "state.db"
+            env_path.write_text(
+                "\n".join([
+                    f"SQLITE_PATH={db_path}",
+                    "GROQ_API_KEY=test-key-fake",
+                ]),
+                encoding="utf-8",
+            )
+
+            with patch.object(sys, "argv", ["agent.main", "--env-file", str(env_path), "--live"]), \
+                 patch("agent.ingestion.jupiter_price.fetch_prices",
+                       AsyncMock(side_effect=Exception("jupiter down"))), \
+                 patch("agent.ingestion.coingecko.fetch_fallback_prices",
+                       AsyncMock(return_value={"SOL": 149.5})), \
+                 patch("agent.ingestion.arxiv.fetch_arxiv", AsyncMock(return_value=[])), \
+                 patch("agent.ingestion.news_rss.fetch_news_rss", AsyncMock(return_value=[])):
+                main()
+
+            database = Database(db_path)
+            sol_rows = database.price_history("SOL")
+            database.close()
+
+        self.assertEqual(len(sol_rows), 1)
+        self.assertEqual(sol_rows[0]["source"], "coingecko")
+        self.assertAlmostEqual(sol_rows[0]["price_usdc"], 149.5)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
     def test_main_live_no_prices_aborts_gracefully(self) -> None:
         """--live with no prices available aborts without executing."""
         with patch.dict("os.environ", {}, clear=True):

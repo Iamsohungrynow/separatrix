@@ -241,6 +241,139 @@ class DatabaseTestCase(unittest.TestCase):
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
+    def test_record_prices_and_price_history_newest_first(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_price_history"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        inserted_first = database.record_prices(
+            {"SOL": 100.0, "PYTH": 0.30},
+            source="jupiter",
+            recorded_at="2026-01-01T00:00:00Z",
+        )
+        inserted_second = database.record_prices(
+            {"SOL": 110.0},
+            source="jupiter",
+            recorded_at="2026-01-02T00:00:00Z",
+        )
+        # Same timestamp, different source → its own row.
+        inserted_other_source = database.record_prices(
+            {"SOL": 100.5},
+            source="binance",
+            recorded_at="2026-01-01T00:00:00Z",
+        )
+        # Default recorded_at falls back to now (just check it inserts).
+        inserted_now = database.record_prices({"SOL": 111.0}, source="jupiter")
+
+        history = database.price_history("SOL")
+        jupiter_only = database.price_history("SOL", source="jupiter")
+        limited = database.price_history("SOL", limit=1, source="jupiter")
+        empty = database.price_history("DOESNOTEXIST")
+        database.close()
+
+        self.assertEqual(inserted_first, 2)
+        self.assertEqual(inserted_second, 1)
+        self.assertEqual(inserted_other_source, 1)
+        self.assertEqual(inserted_now, 1)
+        self.assertEqual(len(history), 4)
+        # Newest first; the default-timestamp row (today) sorts newest.
+        self.assertEqual(history[-1]["recorded_at"], "2026-01-01T00:00:00Z")
+        self.assertEqual(len(jupiter_only), 3)
+        self.assertTrue(all(row["source"] == "jupiter" for row in jupiter_only))
+        self.assertEqual(len(limited), 1)
+        self.assertAlmostEqual(limited[0]["price_usdc"], 111.0)
+        self.assertEqual(empty, [])
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_record_prices_is_idempotent(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_price_idempotent"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        first = database.record_prices(
+            {"SOL": 100.0}, source="binance", recorded_at="2026-01-01T00:00:00Z"
+        )
+        # Re-recording the same (asset, recorded_at, source) is a no-op,
+        # even with a different price — backfills stay idempotent.
+        second = database.record_prices(
+            {"SOL": 999.0}, source="binance", recorded_at="2026-01-01T00:00:00Z"
+        )
+
+        rows = database.price_history("SOL")
+        database.close()
+
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 0)
+        self.assertEqual(len(rows), 1)
+        self.assertAlmostEqual(rows[0]["price_usdc"], 100.0)
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+    def test_price_matrix_returns_oldest_first_per_asset(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_price_matrix"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        database.record_prices({"SOL": 110.0, "PYTH": 0.35}, source="binance", recorded_at="2026-01-02T00:00:00Z")
+        database.record_prices({"SOL": 100.0, "PYTH": 0.30}, source="binance", recorded_at="2026-01-01T00:00:00Z")
+        database.record_prices({"SOL": 120.0}, source="jupiter", recorded_at="2026-01-03T00:00:00Z")
+
+        matrix = database.price_matrix(["SOL", "PYTH", "MISSING"])
+        binance_only = database.price_matrix(["SOL"], source="binance")
+        database.close()
+
+        self.assertEqual(
+            matrix["SOL"],
+            [
+                ("2026-01-01T00:00:00Z", 100.0),
+                ("2026-01-02T00:00:00Z", 110.0),
+                ("2026-01-03T00:00:00Z", 120.0),
+            ],
+        )
+        self.assertEqual(
+            matrix["PYTH"],
+            [("2026-01-01T00:00:00Z", 0.30), ("2026-01-02T00:00:00Z", 0.35)],
+        )
+        # Every requested asset is present, even without history.
+        self.assertEqual(matrix["MISSING"], [])
+        self.assertEqual(
+            binance_only["SOL"],
+            [("2026-01-01T00:00:00Z", 100.0), ("2026-01-02T00:00:00Z", 110.0)],
+        )
+
+    def test_latest_prices_picks_newest_recorded_at_not_newest_row(self) -> None:
+        case_dir = Path(".tmp-tests") / "test_database_latest_prices"
+        shutil.rmtree(case_dir, ignore_errors=True)
+        case_dir.mkdir(parents=True, exist_ok=True)
+
+        database = Database(case_dir / "state.db")
+        database.initialize()
+
+        # Live tick first, then a historical backfill row inserted LATER with
+        # an older recorded_at — the live tick must still win.
+        database.record_prices({"SOL": 150.0}, source="jupiter", recorded_at="2026-02-01T12:00:00Z")
+        database.record_prices({"SOL": 100.0}, source="binance", recorded_at="2026-01-01T00:00:00Z")
+        database.record_prices({"PYTH": 0.4}, source="binance", recorded_at="2026-01-01T00:00:00Z")
+
+        everything = database.latest_prices()
+        filtered = database.latest_prices(assets=["SOL", "MISSING"])
+        database.close()
+
+        self.assertEqual(everything, {"SOL": 150.0, "PYTH": 0.4})
+        self.assertEqual(filtered, {"SOL": 150.0})
+
+        shutil.rmtree(case_dir, ignore_errors=True)
+
     def test_upsert_position_replaces_existing_row(self) -> None:
         case_dir = Path(".tmp-tests") / "test_database_positions"
         shutil.rmtree(case_dir, ignore_errors=True)
