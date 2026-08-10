@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>separatrix — quantum-inspired Ising/QUBO solvers in Rust</title>
+<meta name="description" content="Simulated bifurcation (bSB/dSB) in pure Rust, benchmarked honestly against simulated annealing, parallel tempering, and exact ground truth. No quantum advantage claimed.">
+<style>
+  :root {
+    --bg: #12181A;
+    --surface: #1A2124;
+    --ink: #E4EAE7;
+    --ink-soft: #94A29D;
+    --line: #2A3438;
+    --acc: #43BCA9;
+    --acc2: #D68F52;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; min-height: 100svh; display: grid; place-items: center;
+    padding: 2rem 1.25rem;
+  }
+  main { max-width: 40rem; width: 100%; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--acc);
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 7vw, 3.2rem);
+    letter-spacing: -0.01em; line-height: 1.1; margin: 0.4rem 0 0.9rem;
+    text-wrap: balance;
+  }
+  .lede { color: var(--ink-soft); font-size: 1.05rem; max-width: 36rem; }
+  .fig { margin: 2rem 0; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  .fig text { font-family: var(--mono); }
+  ul.facts { list-style: none; padding: 0; margin: 1.6rem 0; display: grid; gap: 0.6rem; }
+  ul.facts li { padding-left: 1.4rem; position: relative; font-size: 0.98rem; }
+  ul.facts li::before { content: "§"; position: absolute; left: 0; color: var(--acc2); font-family: var(--serif); }
+  .status {
+    margin-top: 2rem; padding: 0.85rem 1.1rem; border: 1px solid var(--line);
+    border-radius: 4px; background: var(--surface); font-family: var(--mono);
+    font-size: 0.82rem; color: var(--ink-soft);
+  }
+  .status b { color: var(--acc); font-weight: 600; }
+  footer { margin-top: 2rem; font-size: 0.8rem; color: var(--ink-soft); }
+  a { color: var(--acc); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover, a:focus-visible { border-bottom-color: var(--acc); outline: none; }
+  code { font-family: var(--mono); font-size: 0.9em; color: var(--acc2); }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">separatrix</p>
+  <h1>Quantum-inspired Ising/QUBO solvers, in pure Rust.</h1>
+  <p class="lede">Simulated bifurcation — the Toshiba-lineage algorithm family (Goto et&nbsp;al., <i>Science&nbsp;Advances</i> 2019&nbsp;&amp;&nbsp;2021) — implemented faithfully and benchmarked the only honest way: next to simulated annealing, parallel tempering, and exact ground truth in the same crate.</p>
+
+  <figure class="fig" aria-hidden="true">
+    <svg viewBox="0 0 640 200">
+      <line x1="20" y1="100" x2="230" y2="100" stroke="#E4EAE7" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M 230 100 C 320 100 360 48 570 34" fill="none" stroke="#43BCA9" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M 230 100 C 320 100 360 152 570 166" fill="none" stroke="#D68F52" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="230" y1="100" x2="570" y2="100" stroke="#94A29D" stroke-width="1.5" stroke-dasharray="2 6" stroke-linecap="round"/>
+      <circle cx="230" cy="100" r="4" fill="#E4EAE7"/>
+      <text x="582" y="39" font-size="13" fill="#43BCA9">s = +1</text>
+      <text x="582" y="171" font-size="13" fill="#D68F52">s = −1</text>
+      <text x="582" y="104" font-size="11" fill="#94A29D">separatrix</text>
+    </svg>
+  </figure>
+
+  <ul class="facts">
+    <li>Deterministic per seed, no OS entropy, compiles to <code>wasm32</code>.</li>
+    <li>A quantized <code>i128</code> objective designed for on-chain verification: solving is NP-hard, checking is cheap.</li>
+    <li>Property tests enforce that no heuristic ever reports an energy below the exact ground state.</li>
+  </ul>
+
+  <p class="status"><b>status:</b> v0.1 solver core. Portfolio workbench, walk-forward benchmarks, and the Solana commitment program are in development — no results are claimed before they ship.</p>
+
+  <footer>Simulated bifurcation is a classical algorithm; this project claims no quantum advantage — that honesty is the point. · <code>cargo add separatrix</code></footer>
+</main>
+</body>
+</html>
