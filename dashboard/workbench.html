@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Separatrix workbench — walk-forward report</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  .wb-wrap { max-width: 980px; margin: 0 auto; padding: 2.5rem 1rem 5rem; }
+  .wb-note { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+  .wb-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.6rem 0; }
+  .wb-pill { font-family: var(--mono); font-size: 0.78rem; border: 1px solid var(--line-strong);
+             background: var(--surface); border-radius: var(--radius-pill); padding: 0.25rem 0.8rem; cursor: pointer; }
+  .wb-pill[aria-pressed="true"] { background: var(--accent-dim); border-color: var(--accent-line); color: var(--accent-strong); }
+  .wb-legend { display: flex; gap: 0.9rem; flex-wrap: wrap; margin: 0.5rem 0 0.2rem; }
+  .wb-key { display: inline-flex; align-items: center; gap: 0.4rem; font-family: var(--mono);
+            font-size: 0.75rem; color: var(--muted); cursor: pointer; user-select: none; }
+  .wb-key[data-off="1"] { opacity: 0.35; }
+  .wb-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .wb-chart { position: relative; }
+  .wb-chart svg { width: 100%; height: auto; display: block; }
+  .wb-tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line-strong);
+            border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 0.4rem 0.6rem;
+            font-family: var(--mono); font-size: 0.72rem; color: var(--ink); display: none; z-index: 5; }
+  .wb-tip b { color: var(--muted); font-weight: 500; }
+  table.wb { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 0.78rem; }
+  table.wb th { text-align: right; color: var(--muted); font-weight: 500; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line-strong); }
+  table.wb th:first-child, table.wb td:first-child { text-align: left; }
+  table.wb td { text-align: right; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  table.wb tr.wb-hero td { background: var(--accent-dim); }
+  .wb-pos { color: var(--pos); } .wb-neg { color: var(--neg); }
+  .wb-fallback { border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 1rem; }
+</style>
+</head>
+<body data-palette="#2f55e0,#0b84a0,#b65f10,#7d4bcc,#bb3369">
+<div class="wb-wrap">
+  <section class="cell cell-md">
+    <div class="cell-inner"><div class="cell-main md">
+      <h1>Separatrix workbench</h1>
+      <p id="study-line" class="wb-note">loading workbench-report.json…</p>
+      <div id="fallback" class="wb-fallback" style="display:none">
+        <p class="wb-note">Could not fetch <code>workbench-report.json</code> (run
+        <code>python -m agent.workbench …</code> to generate it, or pick a report.json):</p>
+        <input type="file" id="file-in" accept="application/json">
+      </div>
+    </div></div>
+  </section>
+  <div id="cells" style="display:none">
+    <section class="cell"><div class="cell-inner">
+      <div class="gutter"><span class="prompt in">In [1]:</span></div>
+      <div class="cell-main"><code class="wb-note">equity(strategies="separatrix solvers", costs=bps)</code>
+        <div class="wb-controls" id="bps-pills"></div></div>
+    </div><div class="cell-inner">
+      <div class="gutter"><span class="prompt out">Out[1]:</span></div>
+      <div class="cell-main"><div id="chart-solvers"></div></div>
+    </div></section>
+    <section class="cell"><div class="cell-inner">
+      <div class="gutter"><span class="prompt in">In [2]:</span></div>
+      <div class="cell-main"><code class="wb-note">equity(strategies="separatrix-exact vs baselines", costs=bps)</code></div>
+    </div><div class="cell-inner">
+      <div class="gutter"><span class="prompt out">Out[2]:</span></div>
+      <div class="cell-main"><div id="chart-baselines"></div></div>
+    </div></section>
+    <section class="cell"><div class="cell-inner">
+      <div class="gutter"><span class="prompt in">In [3]:</span></div>
+      <div class="cell-main"><code class="wb-note">solver_quality(vs="exact ground truth")</code></div>
+    </div><div class="cell-inner">
+      <div class="gutter"><span class="prompt out">Out[3]:</span></div>
+      <div class="cell-main"><div id="solver-table"></div></div>
+    </div></section>
+    <section class="cell"><div class="cell-inner">
+      <div class="gutter"><span class="prompt in">In [4]:</span></div>
+      <div class="cell-main"><code class="wb-note">strategy_table(costs=bps)</code></div>
+    </div><div class="cell-inner">
+      <div class="gutter"><span class="prompt out">Out[4]:</span></div>
+      <div class="cell-main"><div id="strategy-table"></div></div>
+    </div></section>
+    <section class="cell cell-md"><div class="cell-inner"><div class="cell-main md">
+      <h3>Limitations</h3><ul id="limitations" class="wb-note"></ul>
+    </div></div></section>
+  </div>
+</div>
+<script>
+"use strict";
+/* Fixed per-entity colors (validated with the dataviz six-checks validator on
+   the white notebook surface; each chart's displayed order passes CVD +
+   normal-vision separation). Color follows the entity, never its rank. */
+const COLOR = {
+  "separatrix-exact": "#2f55e0", "separatrix-bsb": "#0b84a0", "separatrix-sa": "#b65f10",
+  "separatrix-pt": "#7d4bcc", "separatrix-dsb": "#bb3369",
+  "bh-btc": "#c17a1a", "hrp": "#925ad2", "minvar-greedy-8": "#557a1a",
+  "one-over-n": "#1c81a4", "momentum-8": "#b03544", "bh-sol": "#8b94a6",
+};
+/* Baseline names carry K (momentum-8, minvar-greedy-3), so a study at another
+   K lands outside the fixed map; K is a study parameter, not a different
+   strategy, so the entity keeps its color. Anything genuinely new falls back
+   to a stable spare hue rather than drawing an uncolored line. */
+const SPARE = ["#557a1a", "#925ad2", "#c17a1a", "#1c81a4", "#b03544", "#8b94a6"];
+/* Seven fully CVD-separable hues do not exist at this lightness, and the
+   validated categorical set is six. bh-sol is therefore drawn as a
+   de-emphasized reference — gray and dashed — so it is told apart by form,
+   not by a seventh hue that would collide with momentum-8 under deutan. */
+const REFERENCE_SERIES = new Set(["bh-sol"]);
+const BASE_NAME = (name) => name.replace(/-\d+$/, "");
+const PREFERRED_BPS = "10";
+let REPORT = null, BPS = null, CHART_A = [], CHART_B = [], hidden = new Set();
+
+const $ = (id) => document.getElementById(id);
+/* Report text (strategy names, limitations) reaches innerHTML. The committed
+   report is ours, but the fallback file picker will load any JSON a user
+   points at, and this page is served beside the wallet-connected owner
+   console — so escape rather than trust the source. */
+const esc = (v) => String(v).replace(/[&<>"']/g, (ch) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const fmtPct = (v) => v == null || Number.isNaN(v) ? "—" : (100 * v).toFixed(2) + "%";
+const fmt = (v, d = 2) => v == null || Number.isNaN(v) ? "—" : Number(v).toFixed(d);
+
+function colorFor(name) {
+  if (COLOR[name]) return COLOR[name];
+  const base = BASE_NAME(name);
+  for (const key of Object.keys(COLOR)) if (BASE_NAME(key) === base) return COLOR[key];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return SPARE[h % SPARE.length];
+}
+
+/* Both charts are built the same way, from the strategies the report actually
+   contains: solvers on the left, everything else against the exact optimum on
+   the right. Hard-coded name lists would silently render empty whenever the
+   study changed K or its baseline set. */
+function chartMembers(report) {
+  const names = Object.keys(report.series || {});
+  const solvers = names.filter((n) => n.startsWith("separatrix-")).sort();
+  const baselines = names.filter((n) => !n.startsWith("separatrix-")).sort();
+  const first = (list) => {
+    const i = list.indexOf("separatrix-exact");
+    return i > 0 ? ["separatrix-exact", ...list.filter((n) => n !== "separatrix-exact")] : list;
+  };
+  return [
+    first(solvers),
+    names.includes("separatrix-exact") ? ["separatrix-exact", ...baselines] : baselines,
+  ];
+}
+
+/* The cost level to open on: 10 bps when the study priced it, else whatever
+   the report's own bps_levels offer. */
+function defaultBps(levels) {
+  if (!levels.length) return null;
+  return levels.includes(PREFERRED_BPS) ? PREFERRED_BPS : levels[0];
+}
+
+function boot(report) {
+  REPORT = report;
+  const c = report.config;
+  $("study-line").textContent =
+    `${c.start} → ${c.end} · K=${c.k} λ=${c.risk_aversion} seed=${c.seed} · ` +
+    `${report.rebalances.executed}/${report.rebalances.attempted} rebalances · ` +
+    `exact ground truth on ${fmt(report.exact.available_pct, 1)}% · ` +
+    `${report.configurations_tried} configurations tried`;
+  $("fallback").style.display = "none";
+  $("cells").style.display = "";
+  [CHART_A, CHART_B] = chartMembers(report);
+  const levels = (c.bps_levels || []).map(String);
+  BPS = defaultBps(levels);
+  const pills = $("bps-pills");
+  pills.innerHTML = "";
+  for (const key of levels) {
+    const b = document.createElement("button");
+    b.className = "wb-pill";
+    b.textContent = key + " bps";
+    b.setAttribute("aria-pressed", key === BPS ? "true" : "false");
+    b.onclick = () => { BPS = key; render(); };
+    pills.appendChild(b);
+  }
+  render();
+}
+
+function render() {
+  for (const b of $("bps-pills").children)
+    b.setAttribute("aria-pressed", b.textContent === BPS + " bps" ? "true" : "false");
+  drawChart("chart-solvers", CHART_A);
+  drawChart("chart-baselines", CHART_B);
+  solverTable();
+  strategyTable();
+  $("limitations").innerHTML = REPORT.limitations.map((l) => `<li>${esc(l)}</li>`).join("");
+}
+
+function seriesFor(names) {
+  const out = [];
+  for (const name of names) {
+    const s = (REPORT.series[name] || {})[BPS];
+    if (s && !hidden.has(name)) out.push({ name, dates: s.dates, equity: s.equity });
+  }
+  return out;
+}
+
+function drawChart(mountId, names) {
+  const mount = $(mountId);
+  const series = seriesFor(names);
+  const W = 900, H = 340, L = 46, R = 120, T = 12, B = 26;
+  if (!series.length) {
+    mount.innerHTML = `<p class="wb-note">no series to draw at ${BPS} bps</p>` + legendHtml(names, mountId);
+    for (const key of mount.querySelectorAll(".wb-key"))
+      key.onclick = () => { const n = key.dataset.name; hidden.has(n) ? hidden.delete(n) : hidden.add(n); render(); };
+    return;
+  }
+  // The longest path sets the axis, so both charts span the whole study even
+  // when one strategy started late or was toggled off.
+  let axis = series[0];
+  for (const s of series) if (s.dates.length > axis.dates.length) axis = s;
+  const allDates = axis.dates;
+  const x0 = Date.parse(allDates[0]);
+  const x1 = Math.max(Date.parse(allDates[allDates.length - 1]), x0 + 1);
+  let lo = Infinity, hi = -Infinity;
+  for (const s of series) for (const v of s.equity) { if (v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  const ylo = Math.log(lo * 0.95), yhi = Math.log(hi * 1.05);
+  const X = (d) => L + ((Date.parse(d) - x0) / (x1 - x0)) * (W - L - R);
+  const Y = (v) => T + (1 - (Math.log(v) - ylo) / (yhi - ylo)) * (H - T - B);
+
+  let g = "";
+  const ticks = [0.125, 0.25, 0.5, 1, 2, 4, 8].filter((t) => Math.log(t) > ylo && Math.log(t) < yhi);
+  for (const t of ticks)
+    g += `<line x1="${L}" y1="${Y(t)}" x2="${W - R}" y2="${Y(t)}" stroke="rgba(15,23,42,0.07)"/>` +
+         `<text x="${L - 6}" y="${Y(t) + 3}" text-anchor="end" font-size="10" fill="#8b94a6">${t}×</text>`;
+  const y0 = new Date(x0).getUTCFullYear(), y1 = new Date(x1).getUTCFullYear();
+  for (let yr = y0 + 1; yr <= y1; yr++) {
+    const xd = X(`${yr}-01-01`);
+    g += `<line x1="${xd}" y1="${T}" x2="${xd}" y2="${H - B}" stroke="rgba(15,23,42,0.05)"/>` +
+         `<text x="${xd}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#8b94a6">${yr}</text>`;
+  }
+  let paths = "", labels = [];
+  for (const s of series) {
+    const pts = s.dates.map((d, i) => `${X(d).toFixed(1)},${Y(s.equity[i]).toFixed(1)}`).join(" ");
+    const ref = REFERENCE_SERIES.has(s.name);
+    paths += `<polyline points="${pts}" fill="none" stroke="${colorFor(s.name)}" stroke-width="${ref ? 1.5 : 2}"` +
+             `${ref ? ' stroke-dasharray="5 4"' : ""} stroke-linejoin="round"/>`;
+    labels.push({ name: s.name, y: Y(s.equity[s.equity.length - 1]) });
+  }
+  labels.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labels.length; i++) labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 12);
+  let lab = "";
+  for (const l of labels)
+    lab += `<text x="${W - R + 6}" y="${l.y + 3}" font-size="10" fill="#54607a">` +
+           `<tspan fill="${colorFor(l.name)}">●</tspan> ${l.name.replace("separatrix-", "sx-")}</text>`;
+
+  mount.innerHTML =
+    `<div class="wb-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Equity curves at ${BPS} bps">` +
+    `${g}${paths}${lab}<line id="${mountId}-x" y1="${T}" y2="${H - B}" stroke="rgba(15,23,42,0.25)" style="display:none"/></svg>` +
+    `<div class="wb-tip" id="${mountId}-tip"></div></div>` + legendHtml(names, mountId);
+  hookHover(mount, series, X, x0, x1, mountId, allDates);
+  for (const key of mount.querySelectorAll(".wb-key"))
+    key.onclick = () => { const n = key.dataset.name; hidden.has(n) ? hidden.delete(n) : hidden.add(n); render(); };
+}
+
+function legendHtml(names, mountId) {
+  return `<div class="wb-legend">` + names.map((n) =>
+    `<span class="wb-key" data-name="${n}" data-off="${hidden.has(n) ? 1 : 0}">` +
+    `<span class="wb-swatch" style="background:${colorFor(n)}${
+      REFERENCE_SERIES.has(n) ? ";outline:1px dashed var(--dim);outline-offset:1px" : ""
+    }"></span>${esc(n)}${REFERENCE_SERIES.has(n) ? " (reference)" : ""}</span>`).join("") + `</div>`;
+}
+
+function hookHover(mount, series, X, x0, x1, mountId, dates) {
+  const svg = mount.querySelector("svg"), tip = $(`${mountId}-tip`), xline = $(`${mountId}-x`);
+  svg.addEventListener("mousemove", (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const fx = (ev.clientX - rect.left) / rect.width * 900;
+    const t = x0 + Math.min(1, Math.max(0, (fx - 46) / (900 - 46 - 120))) * (x1 - x0);
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < dates.length; i++) {
+      const d = Math.abs(Date.parse(dates[i]) - t);
+      if (d < bd) { bd = d; best = i; }
+    }
+    const xd = X(dates[best]);
+    xline.setAttribute("x1", xd); xline.setAttribute("x2", xd); xline.style.display = "";
+    tip.style.display = "block";
+    tip.style.left = Math.min(ev.clientX - rect.left + 14, rect.width - 190) + "px";
+    tip.style.top = "10px";
+    tip.innerHTML = `<b>${esc(dates[best])}</b><br>` + series.map((s) => {
+      // Read each series at its own date: paths may differ in length.
+      const i = s.dates.indexOf(dates[best]);
+      return `<span style="color:${colorFor(s.name)}">●</span> ${esc(s.name.replace("separatrix-", "sx-"))} ` +
+        (i < 0 ? "—" : `${s.equity[i].toFixed(3)}×`);
+    }).join("<br>");
+  });
+  svg.addEventListener("mouseleave", () => { tip.style.display = "none"; xline.style.display = "none"; });
+}
+
+function solverTable() {
+  // Ranked best-to-worst by the headline measure, so the table reads as the
+  // ranking it is; exact sits at 0 by construction.
+  const ranked = Object.entries(REPORT.solvers).sort(
+    (a, b) => (a[1].gap_norm_median ?? Infinity) - (b[1].gap_norm_median ?? Infinity));
+  const rows = ranked.map(([name, s]) => `<tr${name === "exact" ? ' class="wb-hero"' : ""}>` +
+    `<td>${esc(name)}</td><td>${s.rebalances}</td>` +
+    `<td>${fmt(s.gap_norm_median, 3)}</td><td>${fmt(s.gap_norm_mean, 3)}</td>` +
+    `<td>${fmt(s.gap_rel_median, 3)}</td>` +
+    `<td>${fmt(s.pct_exact_optimum, 1)}%</td><td>${fmt(s.pre_repair_feasibility_pct, 1)}%</td>` +
+    `<td>${fmt(s.mean_runtime_ms, 2)}</td></tr>`).join("");
+  $("solver-table").innerHTML = `<table class="wb"><tr><th>solver</th><th>rebalances</th>` +
+    `<th>median gap_norm</th><th>mean gap_norm</th><th>median gap_rel</th>` +
+    `<th>% at optimum</th><th>feasible raw</th><th>runtime ms</th></tr>${rows}</table>` +
+    `<p class="wb-note">gap_norm = how far along the achievable objective range the solver landed ` +
+    `(0 = the proven optimum, 1 = the worst feasible portfolio), from enumerating all C(N,K) subsets. ` +
+    `gap_rel divides the same gap by the optimum's own objective instead, so it spikes on dates where ` +
+    `that objective passes through zero — read its median, not its mean. Blank where the instance ` +
+    `exceeded the C(N,K) cap.</p>`;
+}
+
+function strategyTable() {
+  const rows = Object.entries(REPORT.strategies).map(([name, s]) => {
+    const p = (s.per_bps || {})[BPS];
+    if (!p) return "";
+    const r = p.annualized_return, cls = r >= 0 ? "wb-pos" : "wb-neg";
+    return `<tr${name === "separatrix-exact" ? ' class="wb-hero"' : ""}><td><span class="wb-swatch" style="background:${colorFor(name)}"></span> ${esc(name)}</td>` +
+      `<td class="${cls}">${fmtPct(r)}</td><td>${fmtPct(p.annualized_volatility)}</td>` +
+      `<td>${fmt(p.sharpe)}</td><td>${fmt(p.sortino)}</td><td>${fmtPct(p.max_drawdown)}</td>` +
+      `<td>${fmt(s.avg_one_way_turnover)}</td></tr>`;
+  }).join("");
+  $("strategy-table").innerHTML = `<table class="wb"><tr><th>strategy (at ${BPS} bps)</th><th>ann. return</th>` +
+    `<th>ann. vol</th><th>Sharpe</th><th>Sortino</th><th>max DD</th><th>turnover</th></tr>${rows}</table>`;
+}
+
+fetch("workbench-report.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(boot)
+  .catch(() => {
+    $("study-line").textContent = "no report loaded";
+    $("fallback").style.display = "";
+    $("file-in").onchange = (ev) => {
+      const f = ev.target.files[0];
+      if (f) f.text().then((t) => boot(JSON.parse(t)));
+    };
+  });
+</script>
+</body>
+</html>

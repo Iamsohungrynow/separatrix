@@ -41,9 +41,9 @@ jobs:
         with:
           components: clippy
           targets: wasm32-unknown-unknown
-      - name: Test (unit, property, doc)
-        run: cargo test
+      - name: Test (unit, property, doc, cli protocol)
+        run: cargo test --workspace
       - name: Clippy (warnings are errors)
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Check wasm32 build (no default features)
         run: cargo check --no-default-features --target wasm32-unknown-unknown

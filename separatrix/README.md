@@ -60,10 +60,37 @@ floats are for dynamics, integers are for keeping score.
 ## Benchmarks
 
 `cargo bench` runs criterion throughput benchmarks on dense spin glasses.
-Quality benchmarks (optimality-gap tables on portfolio instances, SB vs SA vs
-PT vs exact MIP) will come from the Separatrix workbench, which does not exist
-yet. Until it ships and its methodology is published alongside its numbers,
-this crate quotes no performance or quality figures anywhere.
+
+Solution *quality* is measured by the Separatrix workbench in the parent repo,
+which walks a real crypto universe forward and solves every rebalance with
+every solver **and** by exhaustive enumeration, so each gap is measured against
+a proven optimum rather than against another heuristic. Because the enumerator
+visits every feasible portfolio it also knows the *worst* one, which gives a
+scale-free score: `gap_norm` is how far along the achievable objective range a
+solver landed — 0 is optimal, 1 is the worst portfolio available.
+
+From the published study (39 assets, K=8, 234 weekly rebalances, 2022-02 →
+2026-07, exact ground truth on **100%** of them, up to C(39,8) = 61.5M subsets
+per rebalance):
+
+| Solver | Median `gap_norm` | At the exact optimum | Mean runtime |
+| --- | ---: | ---: | ---: |
+| exact | 0 | 100% | 274.3 ms |
+| bSB | 0.031 | 15.0% | 2.2 ms |
+| SA | 0.079 | 0% | 1.4 ms |
+| PT | 0.110 | 0% | 4.9 ms |
+| dSB | 0.325 | 0% | 1.8 ms |
+
+Read that honestly. Exact enumeration is affordable at this size and wins
+outright — it is the right choice here, and the heuristics are not close to
+free: bSB buys its 128× speed-up by landing about 3% of the way along the
+objective range, and dSB is frankly poor on these instances. The case for a
+heuristic begins only where `C(N,K)` stops being enumerable. Anyone reading
+"quantum-inspired solver beats classical" into this table is misreading it.
+
+The methodology, cost model, baselines, and limitations are in
+[`docs/workbench.md`](../docs/workbench.md), including the exact command that
+reproduces every figure above.
 
 ## Correctness
 
@@ -86,10 +113,13 @@ that **no heuristic ever reports an energy below the exact ground state**.
 
 ## Status
 
-v0.1 is the solver core, and what you see in this crate is all that exists
-today. The wider Separatrix project — a portfolio workbench, a walk-forward
-harness, and an on-chain commitment/scoring program on Solana — is planned
-next in the parent repo alongside [Leash](../README.md). None of it ships yet,
-and nothing here claims results from it.
+The crate ships the solver core plus `portfolio`: the cardinality-constrained
+selection QUBO, greedy repair to exactly K, and a K-subset enumerator that
+returns proven optima up to a configurable `C(N,K)` cap.
+
+The walk-forward workbench that consumes it lives in the parent repo next to
+[Leash](../README.md). Still unbuilt, and therefore still unclaimed: the
+on-chain commitment/scoring program on Solana, the browser demo, and the
+real-quantum-hardware comparison run.
 
 License: MIT
