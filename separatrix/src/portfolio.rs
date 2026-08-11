@@ -7,8 +7,14 @@
 //! f(x) = (1/k²)·xᵀΣx − (λ/k)·μᵀx + P·(Σx − k)²
 //! ```
 //!
-//! The constant `P·k²` arising from expanding the penalty is dropped — it
-//! shifts every configuration equally, so optima and gaps are unaffected.
+//! The constant `P·k²` arising from expanding the penalty cannot be stored in
+//! a [`QuboModel`], so it is dropped from the coefficients and returned
+//! separately as [`SelectionQubo::offset`]: `f(x) = qubo(x) + offset`. Optima
+//! and absolute gaps are unaffected by the shift, but **relative** gaps are
+//! not — dividing by a `qubo(x)` value still carrying `−P·k²` normalizes by
+//! the penalty scale instead of the portfolio objective and understates the
+//! gap by orders of magnitude. Always add `offset` back before forming a
+//! ratio.
 //!
 //! Workflow: [`build_selection_qubo`] → [`QuantizedQubo::quantize`] → solve
 //! the penalized QUBO with any heuristic → [`repair_to_k`] if infeasible →
@@ -36,6 +42,18 @@ pub struct PortfolioSpec<'a> {
     pub penalty: Option<f64>,
 }
 
+/// A built selection QUBO plus the pieces needed to interpret its values.
+#[derive(Debug, Clone)]
+pub struct SelectionQubo {
+    /// The penalized QUBO the solvers minimize.
+    pub qubo: QuboModel<f64>,
+    /// The cardinality penalty `P` actually used (auto-scaled unless supplied).
+    pub penalty: f64,
+    /// `P·k²`. Add to a QUBO value to recover the portfolio objective:
+    /// `f(x) = qubo(x) + offset`, exact on the feasible set.
+    pub offset: f64,
+}
+
 /// Build the penalized selection QUBO.
 ///
 /// Auto-penalty: with `B = max_i (|c_i| + Σ_{j≠i} |q_ij|)` over the
@@ -44,7 +62,7 @@ pub struct PortfolioSpec<'a> {
 /// manifold then costs at least `P` while gaining at most `B`, so violations
 /// never pay locally. This is a strong heuristic, not a global proof — which
 /// is one reason the feasible-set ground truth in [`exact_k`] exists.
-pub fn build_selection_qubo(spec: &PortfolioSpec<'_>) -> Result<QuboModel<f64>, Error> {
+pub fn build_selection_qubo(spec: &PortfolioSpec<'_>) -> Result<SelectionQubo, Error> {
     let n = spec.mu.len();
     if n == 0 {
         return Err(Error::InvalidInput("empty asset universe".into()));
@@ -108,7 +126,8 @@ pub fn build_selection_qubo(spec: &PortfolioSpec<'_>) -> Result<QuboModel<f64>, 
         2.0 * bound + 1e-12
     });
 
-    // Penalty expansion (constant P·k² dropped): diag += P·(1 − 2k); pairs += 2P.
+    // Penalty expansion (constant P·k² returned as `offset`, not stored):
+    // diag += P·(1 − 2k); pairs += 2P.
     let mut qubo = QuboModel::new(n);
     for i in 0..n {
         qubo.set_term(i, i, diag[i] + penalty * (1.0 - 2.0 * k));
@@ -116,7 +135,11 @@ pub fn build_selection_qubo(spec: &PortfolioSpec<'_>) -> Result<QuboModel<f64>, 
             qubo.set_term(i, j, pairs[i * n + j] + 2.0 * penalty);
         }
     }
-    Ok(qubo)
+    Ok(SelectionQubo {
+        qubo,
+        penalty,
+        offset: penalty * k * k,
+    })
 }
 
 /// Contribution of bit `i` to the integer objective given the other set bits:
@@ -303,7 +326,7 @@ mod tests {
         // diag_i = sigma_ii/1 - 2*mu_i + P(1-2) ; pair = 2*sigma_01 + 2P
         let mu = [0.01, -0.02];
         let sigma = [0.04, 0.01, 0.01, 0.09];
-        let q = build_selection_qubo(&PortfolioSpec {
+        let built = build_selection_qubo(&PortfolioSpec {
             mu: &mu,
             sigma: &sigma,
             risk_aversion: 2.0,
@@ -311,16 +334,67 @@ mod tests {
             penalty: Some(10.0),
         })
         .unwrap();
+        let q = &built.qubo;
         assert!((q.term(0, 0) - (0.04 - 0.02 - 10.0)).abs() < 1e-12);
         assert!((q.term(1, 1) - (0.09 + 0.04 - 10.0)).abs() < 1e-12);
         assert!((q.term(0, 1) - (0.02 + 20.0)).abs() < 1e-12);
+        // offset = P·k² = 10·1
+        assert!((built.offset - 10.0).abs() < 1e-12);
+        assert!((built.penalty - 10.0).abs() < 1e-12);
+    }
+
+    /// `qubo(x) + offset` must equal the portfolio objective
+    /// `(1/k²)xᵀΣx − (λ/k)μᵀx` on every feasible x — this is what makes a
+    /// relative gap meaningful.
+    #[test]
+    fn offset_recovers_the_portfolio_objective() {
+        let n = 10;
+        let k = 4usize;
+        let lambda = 0.5;
+        let (mu, sigma) = toy_spec(n, 33);
+        let built = build_selection_qubo(&PortfolioSpec {
+            mu: &mu,
+            sigma: &sigma,
+            risk_aversion: lambda,
+            k,
+            penalty: None,
+        })
+        .unwrap();
+
+        for mask in 0..(1u32 << n) {
+            if mask.count_ones() as usize != k {
+                continue;
+            }
+            let bits: Vec<u8> = (0..n).map(|b| ((mask >> b) & 1) as u8).collect();
+            // Direct evaluation of the float objective.
+            let kf = k as f64;
+            let mut risk = 0.0;
+            let mut ret = 0.0;
+            for i in 0..n {
+                if bits[i] == 0 {
+                    continue;
+                }
+                ret += mu[i];
+                for j in 0..n {
+                    if bits[j] != 0 {
+                        risk += sigma[i * n + j];
+                    }
+                }
+            }
+            let direct = risk / (kf * kf) - lambda * ret / kf;
+            let via_qubo = built.qubo.objective(&bits) + built.offset;
+            assert!(
+                (direct - via_qubo).abs() < 1e-9,
+                "mask {mask}: direct {direct} vs qubo+offset {via_qubo}"
+            );
+        }
     }
 
     #[test]
     fn auto_penalty_makes_the_global_optimum_feasible() {
         for seed in [1u64, 2, 3, 4, 5] {
             let (mu, sigma) = toy_spec(10, seed);
-            let q = build_selection_qubo(&PortfolioSpec {
+            let built = build_selection_qubo(&PortfolioSpec {
                 mu: &mu,
                 sigma: &sigma,
                 risk_aversion: 0.5,
@@ -328,7 +402,7 @@ mod tests {
                 penalty: None,
             })
             .unwrap();
-            let qq = QuantizedQubo::quantize(&q, DEFAULT_MAX_COEFF);
+            let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
             let (ising, _) = IsingModel::from_qubo(&qq.to_qubo());
             let ground = exact::solve(&ising).unwrap();
             let ones = ground.bits().iter().filter(|&&b| b == 1).count();
@@ -339,7 +413,7 @@ mod tests {
     #[test]
     fn exact_k_matches_filtered_full_enumeration() {
         let (mu, sigma) = toy_spec(12, 7);
-        let q = build_selection_qubo(&PortfolioSpec {
+        let built = build_selection_qubo(&PortfolioSpec {
             mu: &mu,
             sigma: &sigma,
             risk_aversion: 0.7,
@@ -347,7 +421,7 @@ mod tests {
             penalty: None,
         })
         .unwrap();
-        let qq = QuantizedQubo::quantize(&q, DEFAULT_MAX_COEFF);
+        let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
 
         // Reference: brute-force every popcount-4 bitmask.
         let n = 12;
@@ -369,7 +443,7 @@ mod tests {
     #[test]
     fn exact_k_refuses_oversized_instances() {
         let (mu, sigma) = toy_spec(40, 3);
-        let q = build_selection_qubo(&PortfolioSpec {
+        let built = build_selection_qubo(&PortfolioSpec {
             mu: &mu,
             sigma: &sigma,
             risk_aversion: 0.5,
@@ -377,7 +451,7 @@ mod tests {
             penalty: None,
         })
         .unwrap();
-        let qq = QuantizedQubo::quantize(&q, DEFAULT_MAX_COEFF);
+        let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
         match exact_k(&qq, 12, 1_000_000) {
             Err(Error::TooManySubsets { subsets, max }) => {
                 assert_eq!(subsets, subset_count(40, 12));
@@ -390,7 +464,7 @@ mod tests {
     #[test]
     fn repair_reaches_k_and_never_beats_exact() {
         let (mu, sigma) = toy_spec(14, 11);
-        let q = build_selection_qubo(&PortfolioSpec {
+        let built = build_selection_qubo(&PortfolioSpec {
             mu: &mu,
             sigma: &sigma,
             risk_aversion: 0.5,
@@ -398,7 +472,7 @@ mod tests {
             penalty: None,
         })
         .unwrap();
-        let qq = QuantizedQubo::quantize(&q, DEFAULT_MAX_COEFF);
+        let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
         let (_, exact_obj) = exact_k(&qq, 5, 10_000_000).unwrap();
 
         for start_ones in [0usize, 2, 5, 9, 14] {
@@ -422,7 +496,7 @@ mod tests {
         // Solve the penalized QUBO with SA, repair, and compare to exact_k —
         // the exact flow the CLI runs.
         let (mu, sigma) = toy_spec(16, 21);
-        let q = build_selection_qubo(&PortfolioSpec {
+        let built = build_selection_qubo(&PortfolioSpec {
             mu: &mu,
             sigma: &sigma,
             risk_aversion: 0.5,
@@ -430,7 +504,7 @@ mod tests {
             penalty: None,
         })
         .unwrap();
-        let qq = QuantizedQubo::quantize(&q, DEFAULT_MAX_COEFF);
+        let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
         let (ising, _) = IsingModel::from_qubo(&qq.to_qubo());
         let r = Solver::Sa(SaConfig {
             sweeps: 2000,

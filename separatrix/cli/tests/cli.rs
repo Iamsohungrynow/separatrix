@@ -59,6 +59,15 @@ fn full_pipeline_all_solvers() {
 
     let exact = &v["exact"];
     let exact_obj: i128 = exact["objective_int"].as_str().unwrap().parse().unwrap();
+    let offset: i128 = v["objective_offset_int"].as_str().unwrap().parse().unwrap();
+    let exact_portfolio: i128 = exact["portfolio_objective_int"].as_str().unwrap().parse().unwrap();
+    assert_eq!(exact_portfolio, exact_obj + offset);
+    // The penalty constant dominates the raw QUBO value; the portfolio
+    // objective must NOT inherit that magnitude.
+    assert!(
+        exact_portfolio.abs() < exact_obj.abs(),
+        "offset failed to remove the penalty constant: raw {exact_obj}, portfolio {exact_portfolio}"
+    );
     assert_eq!(
         exact["bits"].as_array().unwrap().iter().filter(|b| b == &&serde_json::json!(1)).count(),
         2
@@ -85,8 +94,30 @@ fn full_pipeline_all_solvers() {
         let gap: i128 = r["gap_int"].as_str().unwrap().parse().unwrap();
         assert!(gap >= 0, "{solver}: negative gap {gap}");
         assert_eq!(obj - exact_obj, gap, "{solver}: inconsistent gap");
-        assert!(r["gap_rel"].as_f64().unwrap() >= 0.0);
+        let gap_rel = r["gap_rel"].as_f64().unwrap();
+        assert!(gap_rel >= 0.0);
+        // gap_rel is the gap over the PORTFOLIO objective of the optimum.
+        let expected = gap as f64 / (exact_portfolio.abs().max(1)) as f64;
+        assert!(
+            (gap_rel - expected).abs() < 1e-12,
+            "{solver}: gap_rel {gap_rel} not normalized by the portfolio objective ({expected})"
+        );
     }
+}
+
+/// Strip wall-clock fields: they legitimately vary run to run.
+fn without_runtimes(mut v: serde_json::Value) -> serde_json::Value {
+    if let Some(exact) = v.get_mut("exact").and_then(|e| e.as_object_mut()) {
+        exact.remove("runtime_ms");
+    }
+    if let Some(results) = v.get_mut("results").and_then(|r| r.as_array_mut()) {
+        for r in results {
+            if let Some(obj) = r.as_object_mut() {
+                obj.remove("runtime_ms");
+            }
+        }
+    }
+    v
 }
 
 #[test]
@@ -95,7 +126,13 @@ fn deterministic_output_for_same_seed() {
     let (a, _, ok_a) = run_cli(&req);
     let (b, _, ok_b) = run_cli(&req);
     assert!(ok_a && ok_b);
-    assert_eq!(a, b, "same request must produce byte-identical output");
+    let va: serde_json::Value = serde_json::from_str(a.trim()).unwrap();
+    let vb: serde_json::Value = serde_json::from_str(b.trim()).unwrap();
+    assert_eq!(
+        without_runtimes(va),
+        without_runtimes(vb),
+        "same request must produce identical results (runtimes excepted)"
+    );
 }
 
 #[test]
@@ -107,7 +144,8 @@ fn exact_too_large_is_reported_not_fatal() {
     assert!(ok, "cli failed: {stderr}");
     let v: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
     assert_eq!(v["exact"]["error"], "TOO_LARGE");
-    assert_eq!(v["exact"]["subsets"], "15");
+    // A JSON number, per docs/workbench.md — the Python bridge requires an int.
+    assert_eq!(v["exact"]["subsets"], 15);
     let r = &v["results"][0];
     assert!(r["gap_int"].is_null());
     assert!(r["gap_rel"].is_null());
