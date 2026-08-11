@@ -79,11 +79,14 @@ enum ExactOut {
     Solved {
         bits: Vec<u8>,
         objective_int: String,
-        runtime_ms: u64,
+        /// `objective_int + objective_offset_int` — the portfolio objective,
+        /// free of the cardinality penalty's constant term.
+        portfolio_objective_int: String,
+        runtime_ms: f64,
     },
     TooLarge {
         error: &'static str,
-        subsets: String,
+        subsets: u128,
     },
 }
 
@@ -93,11 +96,12 @@ struct SolverOut {
     bits: Vec<u8>,
     weights: Vec<f64>,
     objective_int: String,
+    portfolio_objective_int: String,
     feasible_raw: bool,
     repaired: bool,
     gap_int: Option<String>,
     gap_rel: Option<f64>,
-    runtime_ms: u64,
+    runtime_ms: f64,
 }
 
 #[derive(Serialize)]
@@ -105,6 +109,10 @@ struct Response {
     n: usize,
     k: usize,
     scale: f64,
+    /// Quantized `P·k²`. The penalized QUBO drops this constant, so a ratio
+    /// taken against `objective_int` alone would normalize by the penalty
+    /// scale, not the portfolio objective. Add it back first.
+    objective_offset_int: String,
     exact: Option<ExactOut>,
     results: Vec<SolverOut>,
 }
@@ -112,6 +120,12 @@ struct Response {
 fn fail(msg: impl std::fmt::Display) -> ! {
     eprintln!("separatrix-cli error: {msg}");
     std::process::exit(1);
+}
+
+/// Sub-millisecond resolution: these solvers routinely finish in under 1 ms,
+/// and integer-millisecond truncation would bias every reported mean downward.
+fn elapsed_ms(started: Instant) -> f64 {
+    (started.elapsed().as_secs_f64() * 1000.0 * 1000.0).round() / 1000.0
 }
 
 fn main() {
@@ -133,7 +147,7 @@ fn main() {
     }
     let sigma_flat: Vec<f64> = req.sigma.iter().flatten().copied().collect();
 
-    let qubo = match build_selection_qubo(&PortfolioSpec {
+    let built = match build_selection_qubo(&PortfolioSpec {
         mu: &req.mu,
         sigma: &sigma_flat,
         risk_aversion: req.risk_aversion,
@@ -143,8 +157,11 @@ fn main() {
         Ok(q) => q,
         Err(e) => fail(e),
     };
-    let qq = QuantizedQubo::quantize(&qubo, DEFAULT_MAX_COEFF);
+    let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
     let (ising, _offset) = IsingModel::from_qubo(&qq.to_qubo());
+    // The dropped P·k² constant, in the same integer units as the objective.
+    let offset_int = (built.offset * qq.scale).round() as i128;
+    let portfolio_obj = |objective: i128| objective + offset_int;
 
     // Ground truth first, so heuristic gaps can be computed as we go.
     let mut exact_out: Option<ExactOut> = None;
@@ -157,13 +174,14 @@ fn main() {
                 exact_out = Some(ExactOut::Solved {
                     bits,
                     objective_int: obj.to_string(),
-                    runtime_ms: started.elapsed().as_millis() as u64,
+                    portfolio_objective_int: portfolio_obj(obj).to_string(),
+                    runtime_ms: elapsed_ms(started),
                 });
             }
             Err(Error::TooManySubsets { subsets, .. }) => {
                 exact_out = Some(ExactOut::TooLarge {
                     error: "TOO_LARGE",
-                    subsets: subsets.to_string(),
+                    subsets,
                 });
             }
             Err(e) => fail(e),
@@ -216,13 +234,17 @@ fn main() {
         if !feasible_raw {
             repair_to_k(&qq, &mut bits, req.k);
         }
-        let runtime_ms = started.elapsed().as_millis() as u64;
+        let runtime_ms = elapsed_ms(started);
 
         let objective = qq.objective(&bits);
         let (gap_int, gap_rel) = match exact_obj {
             Some(e) => {
                 let gap = objective - e;
-                (Some(gap.to_string()), Some(gap as f64 / (e.abs().max(1)) as f64))
+                // Normalize by the PORTFOLIO objective of the optimum. Using
+                // the raw QUBO value would divide by the penalty constant and
+                // understate the gap by orders of magnitude.
+                let denom = portfolio_obj(e).abs().max(1) as f64;
+                (Some(gap.to_string()), Some(gap as f64 / denom))
             }
             None => (None, None),
         };
@@ -236,6 +258,7 @@ fn main() {
             bits,
             weights,
             objective_int: objective.to_string(),
+            portfolio_objective_int: portfolio_obj(objective).to_string(),
             feasible_raw,
             repaired: !feasible_raw,
             gap_int,
@@ -248,6 +271,7 @@ fn main() {
         n,
         k: req.k,
         scale: qq.scale,
+        objective_offset_int: offset_int.to_string(),
         exact: exact_out,
         results,
     };
