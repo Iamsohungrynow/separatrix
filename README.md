@@ -203,7 +203,9 @@ Details and limitations in [`docs/security.md`](docs/security.md). This is devne
 
 [`separatrix/`](separatrix/) is a second, independent project sharing this history: a pure-Rust **simulated bifurcation** solver (the quantum-inspired Ising/QUBO algorithm family from Goto et al., *Science Advances* 2019/2021), published on [crates.io](https://crates.io/crates/separatrix) and paired with a walk-forward portfolio workbench.
 
-Its point is measurement discipline rather than any performance claim: every rebalance in the study is solved by bSB, dSB, simulated annealing, and parallel tempering **and** by exact enumeration of all `C(N,K)` subsets, so each solver's optimality gap is measured against a proven optimum. In the first published study — 39 assets, K=8, 234 weekly rebalances, exact ground truth on 100% of them — bSB gave up 0.10% of objective for a ~140× speed-up over exact. No quantum advantage is claimed anywhere; the baselines exist precisely so the claims stay small.
+Its point is measurement discipline rather than any performance claim: every rebalance in the study is solved by bSB, dSB, simulated annealing, and parallel tempering **and** by exact enumeration of all `C(N,K)` subsets, so each solver's optimality gap is measured against a proven optimum — and, since enumeration also finds the worst feasible portfolio, against the full achievable range.
+
+The published study covers 39 assets, K=8 and 234 weekly rebalances with exact ground truth on **100%** of them. The result it reports is not a win: exact enumeration is affordable at this size and beats every heuristic, with bSB landing ~3% along the objective range for a 128× speed-up and dSB doing poorly. No quantum advantage is claimed anywhere — the baselines and the ground truth exist precisely to keep the claims small and checkable.
 
 - [`docs/workbench.md`](docs/workbench.md) — formulation, walk-forward rules, evaluation standards, solver protocol
 - [`separatrix/README.md`](separatrix/README.md) — the crate

@@ -91,13 +91,63 @@ const COLOR = {
   "bh-btc": "#c17a1a", "hrp": "#925ad2", "minvar-greedy-8": "#557a1a",
   "one-over-n": "#1c81a4", "momentum-8": "#b03544", "bh-sol": "#8b94a6",
 };
-const CHART_A = ["separatrix-exact", "separatrix-bsb", "separatrix-sa", "separatrix-pt", "separatrix-dsb"];
-const CHART_B = ["separatrix-exact", "bh-btc", "hrp", "minvar-greedy-8", "one-over-n", "momentum-8"];
-let REPORT = null, BPS = "10", hidden = new Set();
+/* Baseline names carry K (momentum-8, minvar-greedy-3), so a study at another
+   K lands outside the fixed map; K is a study parameter, not a different
+   strategy, so the entity keeps its color. Anything genuinely new falls back
+   to a stable spare hue rather than drawing an uncolored line. */
+const SPARE = ["#557a1a", "#925ad2", "#c17a1a", "#1c81a4", "#b03544", "#8b94a6"];
+/* Seven fully CVD-separable hues do not exist at this lightness, and the
+   validated categorical set is six. bh-sol is therefore drawn as a
+   de-emphasized reference — gray and dashed — so it is told apart by form,
+   not by a seventh hue that would collide with momentum-8 under deutan. */
+const REFERENCE_SERIES = new Set(["bh-sol"]);
+const BASE_NAME = (name) => name.replace(/-\d+$/, "");
+const PREFERRED_BPS = "10";
+let REPORT = null, BPS = null, CHART_A = [], CHART_B = [], hidden = new Set();
 
 const $ = (id) => document.getElementById(id);
+/* Report text (strategy names, limitations) reaches innerHTML. The committed
+   report is ours, but the fallback file picker will load any JSON a user
+   points at, and this page is served beside the wallet-connected owner
+   console — so escape rather than trust the source. */
+const esc = (v) => String(v).replace(/[&<>"']/g, (ch) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 const fmtPct = (v) => v == null || Number.isNaN(v) ? "—" : (100 * v).toFixed(2) + "%";
 const fmt = (v, d = 2) => v == null || Number.isNaN(v) ? "—" : Number(v).toFixed(d);
+
+function colorFor(name) {
+  if (COLOR[name]) return COLOR[name];
+  const base = BASE_NAME(name);
+  for (const key of Object.keys(COLOR)) if (BASE_NAME(key) === base) return COLOR[key];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return SPARE[h % SPARE.length];
+}
+
+/* Both charts are built the same way, from the strategies the report actually
+   contains: solvers on the left, everything else against the exact optimum on
+   the right. Hard-coded name lists would silently render empty whenever the
+   study changed K or its baseline set. */
+function chartMembers(report) {
+  const names = Object.keys(report.series || {});
+  const solvers = names.filter((n) => n.startsWith("separatrix-")).sort();
+  const baselines = names.filter((n) => !n.startsWith("separatrix-")).sort();
+  const first = (list) => {
+    const i = list.indexOf("separatrix-exact");
+    return i > 0 ? ["separatrix-exact", ...list.filter((n) => n !== "separatrix-exact")] : list;
+  };
+  return [
+    first(solvers),
+    names.includes("separatrix-exact") ? ["separatrix-exact", ...baselines] : baselines,
+  ];
+}
+
+/* The cost level to open on: 10 bps when the study priced it, else whatever
+   the report's own bps_levels offer. */
+function defaultBps(levels) {
+  if (!levels.length) return null;
+  return levels.includes(PREFERRED_BPS) ? PREFERRED_BPS : levels[0];
+}
 
 function boot(report) {
   REPORT = report;
@@ -109,10 +159,12 @@ function boot(report) {
     `${report.configurations_tried} configurations tried`;
   $("fallback").style.display = "none";
   $("cells").style.display = "";
+  [CHART_A, CHART_B] = chartMembers(report);
+  const levels = (c.bps_levels || []).map(String);
+  BPS = defaultBps(levels);
   const pills = $("bps-pills");
   pills.innerHTML = "";
-  for (const bps of c.bps_levels) {
-    const key = String(bps);
+  for (const key of levels) {
     const b = document.createElement("button");
     b.className = "wb-pill";
     b.textContent = key + " bps";
@@ -130,7 +182,7 @@ function render() {
   drawChart("chart-baselines", CHART_B);
   solverTable();
   strategyTable();
-  $("limitations").innerHTML = REPORT.limitations.map((l) => `<li>${l}</li>`).join("");
+  $("limitations").innerHTML = REPORT.limitations.map((l) => `<li>${esc(l)}</li>`).join("");
 }
 
 function seriesFor(names) {
@@ -146,9 +198,19 @@ function drawChart(mountId, names) {
   const mount = $(mountId);
   const series = seriesFor(names);
   const W = 900, H = 340, L = 46, R = 120, T = 12, B = 26;
-  if (!series.length) { mount.innerHTML = '<p class="wb-note">all series hidden</p>'; return; }
-  const allDates = series[0].dates;
-  const x0 = Date.parse(allDates[0]), x1 = Date.parse(allDates[allDates.length - 1]);
+  if (!series.length) {
+    mount.innerHTML = `<p class="wb-note">no series to draw at ${BPS} bps</p>` + legendHtml(names, mountId);
+    for (const key of mount.querySelectorAll(".wb-key"))
+      key.onclick = () => { const n = key.dataset.name; hidden.has(n) ? hidden.delete(n) : hidden.add(n); render(); };
+    return;
+  }
+  // The longest path sets the axis, so both charts span the whole study even
+  // when one strategy started late or was toggled off.
+  let axis = series[0];
+  for (const s of series) if (s.dates.length > axis.dates.length) axis = s;
+  const allDates = axis.dates;
+  const x0 = Date.parse(allDates[0]);
+  const x1 = Math.max(Date.parse(allDates[allDates.length - 1]), x0 + 1);
   let lo = Infinity, hi = -Infinity;
   for (const s of series) for (const v of s.equity) { if (v > 0) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
   const ylo = Math.log(lo * 0.95), yhi = Math.log(hi * 1.05);
@@ -169,7 +231,9 @@ function drawChart(mountId, names) {
   let paths = "", labels = [];
   for (const s of series) {
     const pts = s.dates.map((d, i) => `${X(d).toFixed(1)},${Y(s.equity[i]).toFixed(1)}`).join(" ");
-    paths += `<polyline points="${pts}" fill="none" stroke="${COLOR[s.name]}" stroke-width="2" stroke-linejoin="round"/>`;
+    const ref = REFERENCE_SERIES.has(s.name);
+    paths += `<polyline points="${pts}" fill="none" stroke="${colorFor(s.name)}" stroke-width="${ref ? 1.5 : 2}"` +
+             `${ref ? ' stroke-dasharray="5 4"' : ""} stroke-linejoin="round"/>`;
     labels.push({ name: s.name, y: Y(s.equity[s.equity.length - 1]) });
   }
   labels.sort((a, b) => a.y - b.y);
@@ -177,13 +241,13 @@ function drawChart(mountId, names) {
   let lab = "";
   for (const l of labels)
     lab += `<text x="${W - R + 6}" y="${l.y + 3}" font-size="10" fill="#54607a">` +
-           `<tspan fill="${COLOR[l.name]}">●</tspan> ${l.name.replace("separatrix-", "sx-")}</text>`;
+           `<tspan fill="${colorFor(l.name)}">●</tspan> ${l.name.replace("separatrix-", "sx-")}</text>`;
 
   mount.innerHTML =
     `<div class="wb-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Equity curves at ${BPS} bps">` +
     `${g}${paths}${lab}<line id="${mountId}-x" y1="${T}" y2="${H - B}" stroke="rgba(15,23,42,0.25)" style="display:none"/></svg>` +
     `<div class="wb-tip" id="${mountId}-tip"></div></div>` + legendHtml(names, mountId);
-  hookHover(mount, series, X, x0, x1, mountId);
+  hookHover(mount, series, X, x0, x1, mountId, allDates);
   for (const key of mount.querySelectorAll(".wb-key"))
     key.onclick = () => { const n = key.dataset.name; hidden.has(n) ? hidden.delete(n) : hidden.add(n); render(); };
 }
@@ -191,16 +255,17 @@ function drawChart(mountId, names) {
 function legendHtml(names, mountId) {
   return `<div class="wb-legend">` + names.map((n) =>
     `<span class="wb-key" data-name="${n}" data-off="${hidden.has(n) ? 1 : 0}">` +
-    `<span class="wb-swatch" style="background:${COLOR[n]}"></span>${n}</span>`).join("") + `</div>`;
+    `<span class="wb-swatch" style="background:${colorFor(n)}${
+      REFERENCE_SERIES.has(n) ? ";outline:1px dashed var(--dim);outline-offset:1px" : ""
+    }"></span>${esc(n)}${REFERENCE_SERIES.has(n) ? " (reference)" : ""}</span>`).join("") + `</div>`;
 }
 
-function hookHover(mount, series, X, x0, x1, mountId) {
+function hookHover(mount, series, X, x0, x1, mountId, dates) {
   const svg = mount.querySelector("svg"), tip = $(`${mountId}-tip`), xline = $(`${mountId}-x`);
   svg.addEventListener("mousemove", (ev) => {
     const rect = svg.getBoundingClientRect();
     const fx = (ev.clientX - rect.left) / rect.width * 900;
     const t = x0 + Math.min(1, Math.max(0, (fx - 46) / (900 - 46 - 120))) * (x1 - x0);
-    const dates = series[0].dates;
     let best = 0, bd = Infinity;
     for (let i = 0; i < dates.length; i++) {
       const d = Math.abs(Date.parse(dates[i]) - t);
@@ -211,22 +276,35 @@ function hookHover(mount, series, X, x0, x1, mountId) {
     tip.style.display = "block";
     tip.style.left = Math.min(ev.clientX - rect.left + 14, rect.width - 190) + "px";
     tip.style.top = "10px";
-    tip.innerHTML = `<b>${dates[best]}</b><br>` + series.map((s) =>
-      `<span style="color:${COLOR[s.name]}">●</span> ${s.name.replace("separatrix-", "sx-")} ` +
-      `${s.equity[best].toFixed(3)}×`).join("<br>");
+    tip.innerHTML = `<b>${esc(dates[best])}</b><br>` + series.map((s) => {
+      // Read each series at its own date: paths may differ in length.
+      const i = s.dates.indexOf(dates[best]);
+      return `<span style="color:${colorFor(s.name)}">●</span> ${esc(s.name.replace("separatrix-", "sx-"))} ` +
+        (i < 0 ? "—" : `${s.equity[i].toFixed(3)}×`);
+    }).join("<br>");
   });
   svg.addEventListener("mouseleave", () => { tip.style.display = "none"; xline.style.display = "none"; });
 }
 
 function solverTable() {
-  const rows = Object.entries(REPORT.solvers).map(([name, s]) => `<tr${name === "exact" ? ' class="wb-hero"' : ""}>` +
-    `<td>${name}</td><td>${s.rebalances}</td><td>${s.gap_rel_mean == null ? "—" : s.gap_rel_mean.toExponential(2)}</td>` +
-    `<td>${s.gap_rel_median == null ? "—" : s.gap_rel_median.toExponential(2)}</td>` +
+  // Ranked best-to-worst by the headline measure, so the table reads as the
+  // ranking it is; exact sits at 0 by construction.
+  const ranked = Object.entries(REPORT.solvers).sort(
+    (a, b) => (a[1].gap_norm_median ?? Infinity) - (b[1].gap_norm_median ?? Infinity));
+  const rows = ranked.map(([name, s]) => `<tr${name === "exact" ? ' class="wb-hero"' : ""}>` +
+    `<td>${esc(name)}</td><td>${s.rebalances}</td>` +
+    `<td>${fmt(s.gap_norm_median, 3)}</td><td>${fmt(s.gap_norm_mean, 3)}</td>` +
+    `<td>${fmt(s.gap_rel_median, 3)}</td>` +
     `<td>${fmt(s.pct_exact_optimum, 1)}%</td><td>${fmt(s.pre_repair_feasibility_pct, 1)}%</td>` +
     `<td>${fmt(s.mean_runtime_ms, 2)}</td></tr>`).join("");
-  $("solver-table").innerHTML = `<table class="wb"><tr><th>solver</th><th>rebalances</th><th>mean gap</th>` +
-    `<th>median gap</th><th>% at optimum</th><th>feasible raw</th><th>runtime ms</th></tr>${rows}</table>` +
-    `<p class="wb-note">gap = relative distance of the solver's integer objective from exact enumeration of all C(N,K) subsets.</p>`;
+  $("solver-table").innerHTML = `<table class="wb"><tr><th>solver</th><th>rebalances</th>` +
+    `<th>median gap_norm</th><th>mean gap_norm</th><th>median gap_rel</th>` +
+    `<th>% at optimum</th><th>feasible raw</th><th>runtime ms</th></tr>${rows}</table>` +
+    `<p class="wb-note">gap_norm = how far along the achievable objective range the solver landed ` +
+    `(0 = the proven optimum, 1 = the worst feasible portfolio), from enumerating all C(N,K) subsets. ` +
+    `gap_rel divides the same gap by the optimum's own objective instead, so it spikes on dates where ` +
+    `that objective passes through zero — read its median, not its mean. Blank where the instance ` +
+    `exceeded the C(N,K) cap.</p>`;
 }
 
 function strategyTable() {
@@ -234,7 +312,7 @@ function strategyTable() {
     const p = (s.per_bps || {})[BPS];
     if (!p) return "";
     const r = p.annualized_return, cls = r >= 0 ? "wb-pos" : "wb-neg";
-    return `<tr${name === "separatrix-exact" ? ' class="wb-hero"' : ""}><td><span class="wb-swatch" style="background:${COLOR[name] || "#8b94a6"}"></span> ${name}</td>` +
+    return `<tr${name === "separatrix-exact" ? ' class="wb-hero"' : ""}><td><span class="wb-swatch" style="background:${colorFor(name)}"></span> ${esc(name)}</td>` +
       `<td class="${cls}">${fmtPct(r)}</td><td>${fmtPct(p.annualized_volatility)}</td>` +
       `<td>${fmt(p.sharpe)}</td><td>${fmt(p.sortino)}</td><td>${fmtPct(p.max_drawdown)}</td>` +
       `<td>${fmt(s.avg_one_way_turnover)}</td></tr>`;
