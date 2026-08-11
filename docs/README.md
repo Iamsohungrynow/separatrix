@@ -13,6 +13,8 @@ Use this folder as the stable entrypoint for project context.
 - [`design.md`](design.md): program model, bridge model, demo-agent model
 - [`security.md`](security.md): threat model, enforcement properties, known limitations
 - [`ROADMAP.md`](ROADMAP.md): delivery phases and non-goals
+- [`workbench.md`](workbench.md): Separatrix portfolio formulation, walk-forward
+  rules, evaluation standards, and the Python/Rust solver protocol
 
 ## When To Read What
 
@@ -20,6 +22,9 @@ Use this folder as the stable entrypoint for project context.
   Read `design.md`, `security.md`, and `tests/anchor/leash.ts`; note the IDL rule in `AGENT.md` (update `scripts/gen-idl.js` with any interface change)
 - Working on the Python runtime:
   Read `design.md`, then `HACKATHON_DEV_GUIDE.md`
+- Working on the solver or the portfolio study:
+  Read `workbench.md` first — it is the binding contract for the formulation,
+  the walk-forward rules, and the JSON protocol; then `separatrix/README.md`
 - Working on docs or demos:
   Read `README.md` and `ROADMAP.md`
 
@@ -30,6 +35,7 @@ Green by default:
 - `python -m unittest discover -s tests -v`
 - `cmd /c npm run lint:ts`
 - `npm run devnet:smoke` (live enforcement against the deployed devnet program)
+- `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`, run inside `separatrix/`
 
 Not default-green yet:
 

@@ -8,6 +8,11 @@
 //! The name: as the pump ramps, each SB oscillator crosses the *separatrix* —
 //! the boundary between basins of attraction — and commits to spin +1 or −1.
 //!
+//! The [`portfolio`] module applies all of this to cardinality-constrained
+//! portfolio selection: build the QUBO, repair heuristic solutions to exactly
+//! `k` assets, and enumerate every `k`-subset for a proven optimum when the
+//! instance is small enough to afford it.
+//!
 //! ## Honesty contract
 //!
 //! Simulated bifurcation is a **classical** algorithm derived from the

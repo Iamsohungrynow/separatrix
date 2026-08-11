@@ -60,10 +60,28 @@ floats are for dynamics, integers are for keeping score.
 ## Benchmarks
 
 `cargo bench` runs criterion throughput benchmarks on dense spin glasses.
-Quality benchmarks (optimality-gap tables on portfolio instances, SB vs SA vs
-PT vs exact MIP) will come from the Separatrix workbench, which does not exist
-yet. Until it ships and its methodology is published alongside its numbers,
-this crate quotes no performance or quality figures anywhere.
+
+Solution *quality* is measured by the Separatrix workbench in the parent repo,
+which walks a real crypto universe forward and solves every rebalance with
+every solver **and** exact enumeration, so each gap is measured against a
+proven optimum rather than against another heuristic. From the first published
+study (39 assets, K=8, 234 weekly rebalances, 2022-02 → 2026-07, exact ground
+truth available on 100% of them):
+
+| Solver | Mean gap vs optimum | At the optimum | Mean runtime |
+| --- | ---: | ---: | ---: |
+| bSB | 0.10% | 13.2% | 1.6 ms |
+| SA | 0.14% | 1.7% | 1.0 ms |
+| PT | 0.18% | 0.0% | 5.2 ms |
+| dSB | 0.54% | 1.3% | 1.4 ms |
+| exact | 0 | 100% | 218.6 ms |
+
+Read that honestly: at this size exact enumeration is affordable and wins
+outright, so the heuristics' value is the ~140× speed-up for a ~0.1% objective
+concession — a trade that only starts to matter as C(N,K) explodes. The
+methodology, cost model, baselines, and limitations are in
+[`docs/workbench.md`](../docs/workbench.md); every figure above is reproducible
+with the command in that document.
 
 ## Correctness
 
@@ -86,10 +104,13 @@ that **no heuristic ever reports an energy below the exact ground state**.
 
 ## Status
 
-v0.1 is the solver core, and what you see in this crate is all that exists
-today. The wider Separatrix project — a portfolio workbench, a walk-forward
-harness, and an on-chain commitment/scoring program on Solana — is planned
-next in the parent repo alongside [Leash](../README.md). None of it ships yet,
-and nothing here claims results from it.
+The crate ships the solver core plus `portfolio`: the cardinality-constrained
+selection QUBO, greedy repair to exactly K, and a K-subset enumerator that
+returns proven optima up to a configurable `C(N,K)` cap.
+
+The walk-forward workbench that consumes it lives in the parent repo next to
+[Leash](../README.md). Still unbuilt, and therefore still unclaimed: the
+on-chain commitment/scoring program on Solana, the browser demo, and the
+real-quantum-hardware comparison run.
 
 License: MIT

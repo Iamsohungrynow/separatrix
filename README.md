@@ -199,9 +199,22 @@ Not part of the default verified path:
 
 Details and limitations in [`docs/security.md`](docs/security.md). This is devnet software; it has not been audited.
 
+## Also in This Repo: Separatrix
+
+[`separatrix/`](separatrix/) is a second, independent project sharing this history: a pure-Rust **simulated bifurcation** solver (the quantum-inspired Ising/QUBO algorithm family from Goto et al., *Science Advances* 2019/2021), published on [crates.io](https://crates.io/crates/separatrix) and paired with a walk-forward portfolio workbench.
+
+Its point is measurement discipline rather than any performance claim: every rebalance in the study is solved by bSB, dSB, simulated annealing, and parallel tempering **and** by exact enumeration of all `C(N,K)` subsets, so each solver's optimality gap is measured against a proven optimum. In the first published study — 39 assets, K=8, 234 weekly rebalances, exact ground truth on 100% of them — bSB gave up 0.10% of objective for a ~140× speed-up over exact. No quantum advantage is claimed anywhere; the baselines exist precisely so the claims stay small.
+
+- [`docs/workbench.md`](docs/workbench.md) — formulation, walk-forward rules, evaluation standards, solver protocol
+- [`separatrix/README.md`](separatrix/README.md) — the crate
+- `dashboard/workbench.html` — the study rendered as notebook cells
+- [separatrix.vercel.app](https://separatrix.vercel.app) — project page
+
+Planned next: an Anchor program that commits each allocation on-chain before execution and re-scores it in-program, with spends metered through Leash.
+
 ## Origin
 
-Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Git history preserves the whole journey.
+Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Separatrix is QubitAlpha's other half returning — the quantitative engine, rebuilt in Rust, wearing the leash it created. Git history preserves the whole journey.
 
 ## License
 
