@@ -10,8 +10,10 @@ categories = ["algorithms", "science", "mathematics"]
 
 # Standalone workspace on purpose: the surrounding repo's root workspace is
 # pinned to the Solana SBF toolchain (cargo 1.75, lockfile v3) and this crate's
-# dependencies must never enter that lockfile.
+# dependencies must never enter that lockfile. The cli member keeps serde out
+# of the published library.
 [workspace]
+members = ["cli"]
 
 [features]
 default = ["parallel"]

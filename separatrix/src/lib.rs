@@ -51,6 +51,7 @@
 pub mod exact;
 pub mod model;
 mod parallel;
+pub mod portfolio;
 pub mod pt;
 pub mod quantized;
 pub mod result;
@@ -68,10 +69,16 @@ pub use sb::{SbConfig, SbVariant};
 use num_traits::Float;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// The exact solver enumerates 2ⁿ states and refuses problems it cannot
     /// finish in reasonable time.
     ProblemTooLarge { n: usize, max: usize },
+    /// The cardinality-exact enumerator refuses instances with more than
+    /// `max` k-subsets.
+    TooManySubsets { subsets: u128, max: u64 },
+    /// Malformed problem inputs (dimension mismatches, non-finite values, …).
+    InvalidInput(String),
 }
 
 impl core::fmt::Display for Error {
@@ -81,6 +88,11 @@ impl core::fmt::Display for Error {
                 f,
                 "problem has {n} spins; exact enumeration is capped at {max}"
             ),
+            Error::TooManySubsets { subsets, max } => write!(
+                f,
+                "instance has {subsets} k-subsets; cardinality-exact enumeration is capped at {max}"
+            ),
+            Error::InvalidInput(msg) => write!(f, "invalid input: {msg}"),
         }
     }
 }
