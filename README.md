@@ -199,9 +199,24 @@ Not part of the default verified path:
 
 Details and limitations in [`docs/security.md`](docs/security.md). This is devnet software; it has not been audited.
 
+## Also in This Repo: Separatrix
+
+[`separatrix/`](separatrix/) is a second, independent project sharing this history: a pure-Rust **simulated bifurcation** solver (the quantum-inspired Ising/QUBO algorithm family from Goto et al., *Science Advances* 2019/2021), published on [crates.io](https://crates.io/crates/separatrix) and paired with a walk-forward portfolio workbench.
+
+Its point is measurement discipline rather than any performance claim: every rebalance in the study is solved by bSB, dSB, simulated annealing, and parallel tempering **and** by exact enumeration of all `C(N,K)` subsets, so each solver's optimality gap is measured against a proven optimum — and, since enumeration also finds the worst feasible portfolio, against the full achievable range.
+
+The published study covers 39 assets, K=8 and 234 weekly rebalances with exact ground truth on **100%** of them. The result it reports is not a win: exact enumeration is affordable at this size and beats every heuristic, with bSB landing ~3% along the objective range for a 128× speed-up and dSB doing poorly. No quantum advantage is claimed anywhere — the baselines and the ground truth exist precisely to keep the claims small and checkable.
+
+- [`docs/workbench.md`](docs/workbench.md) — formulation, walk-forward rules, evaluation standards, solver protocol
+- [`separatrix/README.md`](separatrix/README.md) — the crate
+- `dashboard/workbench.html` — the study rendered as notebook cells
+- [separatrix.vercel.app](https://separatrix.vercel.app) — project page
+
+Planned next: an Anchor program that commits each allocation on-chain before execution and re-scores it in-program, with spends metered through Leash.
+
 ## Origin
 
-Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Git history preserves the whole journey.
+Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Separatrix is QubitAlpha's other half returning — the quantitative engine, rebuilt in Rust, wearing the leash it created. Git history preserves the whole journey.
 
 ## License
 

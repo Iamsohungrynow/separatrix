@@ -525,6 +525,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "separatrix-cli"
+version = "0.1.0"
+dependencies = [
+ "separatrix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"

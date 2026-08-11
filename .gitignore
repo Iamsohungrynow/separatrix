@@ -52,3 +52,9 @@ dashboard/node_modules/
 
 # Log files
 *.log
+
+# Workbench reports (committed examples excepted).
+# `reports/*` rather than `reports/` so the negation below can re-include
+# reports/examples/ — git never descends into a fully-ignored directory.
+reports/*
+!reports/examples/
