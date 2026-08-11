@@ -36,10 +36,12 @@ def _ok_payload(**overrides) -> dict:
         "n": 3,
         "k": 2,
         "scale": 12345.6,
+        "objective_offset_int": "123456789012345600000",
         "exact": {
             "bits": [1, 1, 0],
             "objective_int": "-123456789012345678901",  # beyond i64/f64-safe
-            "runtime_ms": 41,
+            "portfolio_objective_int": "-78901",
+            "runtime_ms": 0.041,
         },
         "results": [
             {
@@ -47,11 +49,12 @@ def _ok_payload(**overrides) -> dict:
                 "bits": [1, 1, 0],
                 "weights": [0.5, 0.5, 0.0],
                 "objective_int": "-123456789012345678892",
+                "portfolio_objective_int": "-78892",
                 "feasible_raw": True,
                 "repaired": False,
                 "gap_int": "9",
                 "gap_rel": 7.3e-8,
-                "runtime_ms": 18,
+                "runtime_ms": 18.375,
             }
         ],
     }
@@ -90,7 +93,36 @@ class SolveParsingTestCase(unittest.TestCase):
         self.assertTrue(result.feasible_raw)
         self.assertFalse(result.repaired)
         self.assertEqual(result.weights, [0.5, 0.5, 0.0])
-        self.assertEqual(result.runtime_ms, 18.0)
+        self.assertEqual(result.runtime_ms, 18.375)  # sub-millisecond precision
+
+    def test_parses_the_penalty_free_portfolio_objective(self) -> None:
+        with patch(
+            "agent.workbench.bridge.subprocess.run", return_value=_completed(_ok_payload())
+        ):
+            response = _cli().solve(MU3, SIGMA3, k=2, solvers=["sa", "exact"])
+
+        # portfolio_objective_int = objective_int + objective_offset_int: the
+        # true portfolio objective, free of the P·K² penalty constant.
+        self.assertEqual(response.objective_offset_int, 123456789012345600000)
+        self.assertEqual(response.exact.portfolio_objective_int, -78901)
+        self.assertEqual(response.results[0].portfolio_objective_int, -78892)
+        self.assertEqual(
+            response.exact.objective_int + response.objective_offset_int,
+            response.exact.portfolio_objective_int,
+        )
+
+    def test_missing_portfolio_objective_is_tolerated(self) -> None:
+        payload = _ok_payload()
+        del payload["objective_offset_int"]
+        del payload["exact"]["portfolio_objective_int"]
+        del payload["results"][0]["portfolio_objective_int"]
+        with patch(
+            "agent.workbench.bridge.subprocess.run", return_value=_completed(payload)
+        ):
+            response = _cli().solve(MU3, SIGMA3, k=2)
+        self.assertIsNone(response.objective_offset_int)
+        self.assertIsNone(response.exact.portfolio_objective_int)
+        self.assertIsNone(response.results[0].portfolio_objective_int)
 
     def test_builds_protocol_request(self) -> None:
         with patch(
@@ -157,6 +189,23 @@ class SolveParsingTestCase(unittest.TestCase):
         self.assertIsNone(response.exact.bits)
         self.assertIsNone(response.results[0].gap_int)
         self.assertIsNone(response.results[0].gap_rel)
+        # The solver's own answer survives the missing ground truth.
+        self.assertEqual(response.results[0].bits, [1, 1, 0])
+        self.assertEqual(response.results[0].portfolio_objective_int, -78892)
+
+    def test_too_large_never_raises_over_an_unreadable_subset_count(self) -> None:
+        # subsets is informational; losing it must not cost the rebalance its
+        # solver results.
+        for bad in ("not-a-number", None, 1.0, [1]):
+            payload = _ok_payload(exact={"error": "TOO_LARGE", "subsets": bad})
+            payload["results"][0]["gap_int"] = None
+            payload["results"][0]["gap_rel"] = None
+            with patch(
+                "agent.workbench.bridge.subprocess.run", return_value=_completed(payload)
+            ):
+                response = _cli().solve(MU3, SIGMA3, k=2)
+            self.assertEqual(response.exact.error, "TOO_LARGE")
+            self.assertEqual(len(response.results), 1)
 
     def test_tolerates_log_noise_around_the_json_line(self) -> None:
         stdout = "INFO solver starting\n" + json.dumps(_ok_payload()) + "\n"
@@ -330,13 +379,47 @@ class BridgeIntegrationTestCase(unittest.TestCase):
         self.assertIsNone(response.exact.error)
         self.assertEqual(sum(response.exact.bits), k)
         self.assertGreater(len(response.results), 0)
+        self.assertIsNotNone(response.objective_offset_int)
+        self.assertEqual(
+            response.exact.objective_int + response.objective_offset_int,
+            response.exact.portfolio_objective_int,
+        )
         for result in response.results:
             self.assertEqual(sum(result.bits), k, f"{result.solver} not repaired to K")
             self.assertIsInstance(result.objective_int, int)
             if result.gap_int is not None:
                 self.assertGreaterEqual(result.gap_int, 0)
                 self.assertGreaterEqual(result.objective_int, response.exact.objective_int)
+            self.assertEqual(
+                result.objective_int + response.objective_offset_int,
+                result.portfolio_objective_int,
+            )
             self.assertAlmostEqual(sum(result.weights), 1.0, places=6)
+
+    def test_too_large_cap_degrades_without_losing_solver_results(self) -> None:
+        rng = np.random.default_rng(7)
+        n, k = 6, 3
+        mu = rng.normal(0.001, 0.002, n)
+        chol = rng.normal(0.0, 0.01, (n, n))
+        sigma = chol @ chol.T + np.eye(n) * 1e-4
+
+        cli = SeparatrixCli(binary=_REAL_BINARY, timeout_seconds=120)
+        response = cli.solve(
+            mu, sigma, k,
+            solvers=["bsb", "sa", "exact"],
+            seed=42,
+            max_exact_subsets=1,  # C(6,3) = 20 > 1
+            budget={"sb_steps": 100, "sb_replicas": 4, "sa_sweeps": 100, "sa_restarts": 2},
+        )
+
+        self.assertEqual(response.exact.error, "TOO_LARGE")
+        self.assertEqual(response.exact.subsets, 20)  # a JSON number, per spec
+        self.assertEqual({r.solver for r in response.results}, {"bsb", "sa"})
+        for result in response.results:
+            self.assertEqual(sum(result.bits), k)
+            self.assertIsNone(result.gap_int)
+            self.assertIsNone(result.gap_rel)
+            self.assertIsInstance(result.runtime_ms, float)
 
 
 if __name__ == "__main__":

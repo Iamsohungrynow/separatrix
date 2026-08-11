@@ -11,28 +11,58 @@ from agent.db.database import Database
 from agent.ingestion.binance_klines import BINANCE_SYMBOLS
 from agent.workbench.baselines import default_baselines
 from agent.workbench.bridge import DEFAULT_SOLVERS, SeparatrixCli
-from agent.workbench.data import load_price_data
+from agent.workbench.data import PriceData, load_price_data
 from agent.workbench.report import build_report, write_report
 from agent.workbench.walkforward import WalkForwardConfig, run_walkforward
 
 logger = logging.getLogger("leash.workbench")
 
 
-def default_universe() -> list[str]:
-    """All BINANCE_SYMBOLS tickers, deduplicated by Binance symbol.
+DEFAULT_DASHBOARD_PATH = Path("dashboard") / "workbench-report.json"
 
-    RENDER and RNDR alias the same RENDERUSDT series; keeping both would put
-    one asset in the portfolio twice, so only the first ticker per symbol
-    survives (dict order keeps RENDER).
+
+def default_universe() -> list[str]:
+    """Every ticker in BINANCE_SYMBOLS, aliases included.
+
+    Aliases (several tickers mapping to one Binance symbol, e.g. RENDER and
+    RNDR -> RENDERUSDT) are deliberately kept here: which alias was actually
+    backfilled is a property of the database, not of this table, so picking
+    one blind would silently drop a real asset. ``resolve_universe`` makes the
+    choice once the closes are loaded.
     """
-    seen: set[str] = set()
-    tickers: list[str] = []
-    for ticker, symbol in BINANCE_SYMBOLS.items():
-        if symbol in seen:
+    return list(BINANCE_SYMBOLS)
+
+
+def resolve_universe(
+    configured: list[str], data: PriceData
+) -> tuple[list[str], list[dict[str, str]]]:
+    """The universe the study can actually run on, plus what it dropped.
+
+    A ticker is dropped when it carries no observation at all (never
+    backfilled) or when an earlier surviving ticker already covers the same
+    Binance symbol. Both cases are returned with a reason so the report and
+    the log can name them instead of losing an asset in silence.
+    """
+    effective: list[str] = []
+    dropped: list[dict[str, str]] = []
+    claimed: dict[str, str] = {}
+
+    for ticker in configured:
+        j = data.asset_index.get(ticker)
+        if j is None or not bool(data.observed[:, j].any()):
+            dropped.append({"ticker": ticker, "reason": "no observations in the database"})
             continue
-        seen.add(symbol)
-        tickers.append(ticker)
-    return tickers
+        symbol = BINANCE_SYMBOLS.get(ticker)
+        if symbol is not None and symbol in claimed:
+            dropped.append({
+                "ticker": ticker,
+                "reason": f"alias of {claimed[symbol]} (both map to {symbol})",
+            })
+            continue
+        if symbol is not None:
+            claimed[symbol] = ticker
+        effective.append(ticker)
+    return effective, dropped
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,6 +89,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--env-file", default=".env", help="Path to .env file")
     parser.add_argument("--reports-dir", default="reports",
                         help="Directory that receives reports/<run-id>/ output")
+    parser.add_argument("--publish-dashboard", action="store_true",
+                        help="Also copy the report over --dashboard-path "
+                        "(off by default: that file is a published artifact)")
+    parser.add_argument("--dashboard-path", default=str(DEFAULT_DASHBOARD_PATH),
+                        help="Destination for --publish-dashboard "
+                        f"(default {DEFAULT_DASHBOARD_PATH.as_posix()})")
     return parser
 
 
@@ -95,11 +131,25 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env(args.env_file)
     db_path = Path(args.db) if args.db else settings.database_path
 
+    configured = universe
     db = Database(db_path)
     try:
         db.initialize()
         try:
-            data = load_price_data(db, universe)
+            data = load_price_data(db, configured)
+            universe, dropped = resolve_universe(configured, data)
+            for entry in dropped:
+                logger.warning(
+                    "universe: dropping %s (%s)", entry["ticker"], entry["reason"]
+                )
+            if not universe:
+                print(f"error: no configured ticker has price data (db: {db_path})",
+                      file=sys.stderr)
+                return 2
+            if universe != configured:
+                # Reload so the calendar and the weight vectors cover exactly
+                # the assets the study actually trades.
+                data = load_price_data(db, universe)
         except ValueError as exc:
             print(f"error: {exc} (db: {db_path})", file=sys.stderr)
             return 2
@@ -127,16 +177,25 @@ def main(argv: list[str] | None = None) -> int:
         data, config, bridge, default_baselines(args.k, universe)
     )
 
-    report = build_report(result, data, meta={"db_path": str(db_path)})
+    report = build_report(
+        result,
+        data,
+        meta={"db_path": str(db_path)},
+        configured_universe=configured,
+        universe_dropped=dropped,
+    )
     out_dir = write_report(report, reports_dir=args.reports_dir)
 
-    # Publish the latest report next to the dashboard so
-    # dashboard/workbench.html can fetch it without configuration.
-    dashboard_copy = Path("dashboard") / "workbench-report.json"
-    if dashboard_copy.parent.is_dir():
+    # dashboard/workbench-report.json is a published artifact, so overwriting
+    # it is opt-in: an ordinary run (or a test calling main()) must never
+    # replace the study on the dashboard.
+    if args.publish_dashboard:
+        dashboard_copy = Path(args.dashboard_path)
+        dashboard_copy.parent.mkdir(parents=True, exist_ok=True)
         dashboard_copy.write_text(
             (out_dir / "report.json").read_text(encoding="utf-8"), encoding="utf-8"
         )
+        print(f"published to {dashboard_copy}")
 
     executed = report["rebalances"]["executed"]
     attempted = report["rebalances"]["attempted"]

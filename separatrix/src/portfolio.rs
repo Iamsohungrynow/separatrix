@@ -213,17 +213,28 @@ pub fn subset_count(n: usize, k: usize) -> u128 {
     acc
 }
 
+/// Exact ground truth over the feasible set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExactK {
+    /// Optimal configuration.
+    pub bits: Vec<u8>,
+    /// Its canonical integer objective (the minimum over all `k`-subsets).
+    pub objective: i128,
+    /// The maximum over all `k`-subsets. `worst − objective` is the full
+    /// achievable spread, which makes a scale-free, penalty-free measure of
+    /// how good a heuristic's answer is: `gap / spread` is stable even where
+    /// the optimum sits near zero and a ratio to it would explode.
+    pub worst: i128,
+}
+
 /// Exact ground truth on the feasible set: enumerate every `k`-subset and
-/// return the best bits and canonical integer objective. Refuses instances
-/// with more than `max_subsets` subsets rather than running unbounded.
+/// return the best bits, the optimal objective, and the worst objective.
+/// Refuses instances with more than `max_subsets` subsets rather than running
+/// unbounded.
 ///
 /// DFS in increasing index order with an incrementally maintained objective
 /// (O(k) per node), so the total work is ~`C(n,k)·k` adds.
-pub fn exact_k(
-    qq: &QuantizedQubo,
-    k: usize,
-    max_subsets: u64,
-) -> Result<(Vec<u8>, i128), Error> {
+pub fn exact_k(qq: &QuantizedQubo, k: usize, max_subsets: u64) -> Result<ExactK, Error> {
     let n = qq.n();
     if k == 0 || k > n {
         return Err(Error::InvalidInput(format!("k = {k} outside 1..={n}")));
@@ -242,6 +253,7 @@ pub fn exact_k(
         k: usize,
         chosen: Vec<usize>,
         best_obj: i128,
+        worst_obj: i128,
         best: Vec<usize>,
     }
 
@@ -253,6 +265,9 @@ pub fn exact_k(
                 if obj < self.best_obj {
                     self.best_obj = obj;
                     self.best.clone_from(&self.chosen);
+                }
+                if obj > self.worst_obj {
+                    self.worst_obj = obj;
                 }
                 return;
             }
@@ -276,6 +291,7 @@ pub fn exact_k(
         k,
         chosen: Vec::with_capacity(k),
         best_obj: i128::MAX,
+        worst_obj: i128::MIN,
         best: Vec::new(),
     };
     search.dfs(0, 0);
@@ -285,7 +301,11 @@ pub fn exact_k(
         bits[i] = 1;
     }
     debug_assert_eq!(qq.objective(&bits), search.best_obj);
-    Ok((bits, search.best_obj))
+    Ok(ExactK {
+        bits,
+        objective: search.best_obj,
+        worst: search.worst_obj,
+    })
 }
 
 #[cfg(test)]
@@ -426,18 +446,22 @@ mod tests {
         // Reference: brute-force every popcount-4 bitmask.
         let n = 12;
         let mut best = i128::MAX;
+        let mut worst = i128::MIN;
         for mask in 0u32..(1 << n) {
             if mask.count_ones() as usize != 4 {
                 continue;
             }
             let bits: Vec<u8> = (0..n).map(|b| ((mask >> b) & 1) as u8).collect();
-            best = best.min(qq.objective(&bits));
+            let obj = qq.objective(&bits);
+            best = best.min(obj);
+            worst = worst.max(obj);
         }
 
-        let (bits, obj) = exact_k(&qq, 4, 1_000_000).unwrap();
-        assert_eq!(obj, best);
-        assert_eq!(bits.iter().filter(|&&b| b != 0).count(), 4);
-        assert_eq!(qq.objective(&bits), obj);
+        let got = exact_k(&qq, 4, 1_000_000).unwrap();
+        assert_eq!(got.objective, best);
+        assert_eq!(got.worst, worst);
+        assert_eq!(got.bits.iter().filter(|&&b| b != 0).count(), 4);
+        assert_eq!(qq.objective(&got.bits), got.objective);
     }
 
     #[test]
@@ -473,7 +497,7 @@ mod tests {
         })
         .unwrap();
         let qq = QuantizedQubo::quantize(&built.qubo, DEFAULT_MAX_COEFF);
-        let (_, exact_obj) = exact_k(&qq, 5, 10_000_000).unwrap();
+        let exact_obj = exact_k(&qq, 5, 10_000_000).unwrap().objective;
 
         for start_ones in [0usize, 2, 5, 9, 14] {
             let mut bits = vec![0u8; 14];
@@ -516,7 +540,7 @@ mod tests {
         .unwrap();
         let mut bits = r.bits();
         repair_to_k(&qq, &mut bits, 6);
-        let (_, exact_obj) = exact_k(&qq, 6, 10_000_000).unwrap();
+        let exact_obj = exact_k(&qq, 6, 10_000_000).unwrap().objective;
         let gap = qq.objective(&bits) - exact_obj;
         assert!(gap >= 0);
     }

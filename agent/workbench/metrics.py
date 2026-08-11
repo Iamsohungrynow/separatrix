@@ -72,9 +72,13 @@ def average_turnover(turnovers: Sequence[float]) -> float:
     return float(np.mean(np.asarray(turnovers, dtype=float)))
 
 
-def cost_drag(ann_return_zero_bps: float, ann_return_at_bps: float) -> float:
-    """Annualized return given up to costs at a bps level."""
-    return ann_return_zero_bps - ann_return_at_bps
+def cost_drag(ann_return_at_reference: float, ann_return_at_bps: float) -> float:
+    """Annualized return given up to costs, versus a reference cost level.
+
+    The reference is zero cost whenever the study priced it; the caller
+    records which level it used (see ``report.cost_drag_reference``).
+    """
+    return ann_return_at_reference - ann_return_at_bps
 
 
 def summarize(daily_returns: np.ndarray, values: np.ndarray) -> dict[str, float]:

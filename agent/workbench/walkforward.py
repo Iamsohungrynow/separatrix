@@ -74,13 +74,20 @@ class RebalanceRecord:
     bridge_error: str | None = None
     selection: dict[str, list[str]] = field(default_factory=dict)
     objective_int: dict[str, int] = field(default_factory=dict)
+    # objective_int free of the cardinality-penalty constant; None when the
+    # solver CLI did not report it.
+    portfolio_objective_int: dict[str, int | None] = field(default_factory=dict)
     gap_int: dict[str, int | None] = field(default_factory=dict)
     gap_rel: dict[str, float | None] = field(default_factory=dict)
+    gap_norm: dict[str, float | None] = field(default_factory=dict)
     feasible_raw: dict[str, bool] = field(default_factory=dict)
     repaired: dict[str, bool] = field(default_factory=dict)
     runtime_ms: dict[str, float] = field(default_factory=dict)
+    objective_offset_int: int | None = None
     exact_available: bool = False
     exact_error: str | None = None
+    exact_too_large: bool = False
+    exact_subsets: int | None = None
     exact_runtime_ms: float | None = None
 
 
@@ -144,12 +151,22 @@ def simulate_schedule(
     prior weights are zero, so turnover is Σw_new = 1), and shares are reset.
     Between rebalances shares are fixed; a missing close freezes the asset at
     its last known price (the bounded forward-fill already covers <=3 days).
+
+    ``values[0]`` is the capital committed on the first rebalance date, i.e.
+    1.0 **before** the entry charge: booking the entry cost into ``values[0]``
+    would divide it straight back out of ``values[1:]/values[:-1] − 1`` and
+    hide it from every return-based metric.
     """
     if not schedule:
         raise ValueError("empty schedule")
     n = len(data.assets)
     fee = float(bps) / 10_000.0
-    events = [(data.date_index[day], vec) for day, vec in schedule]
+    # Sorted by date so the pointer below only ever moves forward; several
+    # entries may share a date, and each is a trade in its own right.
+    events = sorted(
+        ((data.date_index[day], vec) for day, vec in schedule),
+        key=lambda event: event[0],
+    )
     start_idx = events[0][0]
     end_idx = min(data.date_index.get(end, len(data.dates) - 1), len(data.dates) - 1)
     if end_idx < start_idx:
@@ -171,8 +188,13 @@ def simulate_schedule(
 
         if idx > start_idx:
             value = float(np.sum(np.where(shares != 0.0, shares * last_price, 0.0)))
+        opening_value = value
 
-        if next_event < len(events) and events[next_event][0] == idx:
+        # `<=`, not `==`: two schedule entries sharing a date would otherwise
+        # stall the pointer forever and freeze the strategy on its first
+        # selection. Coincident entries are applied in schedule order, each
+        # charging the turnover it actually implies.
+        while next_event < len(events) and events[next_event][0] <= idx:
             target = events[next_event][1]
             next_event += 1
 
@@ -195,7 +217,7 @@ def simulate_schedule(
             costs.append(cost_fraction)
 
         out_dates.append(data.dates[idx])
-        values.append(value)
+        values.append(opening_value if idx == start_idx else value)
 
     values_arr = np.asarray(values, dtype=float)
     daily_returns = values_arr[1:] / values_arr[:-1] - 1.0
@@ -334,13 +356,26 @@ def _record_response(
     schedules: dict[str, list[tuple[date, np.ndarray]]],
     data: PriceData,
 ) -> RebalanceRecord:
-    record = RebalanceRecord(day=day, universe=universe)
+    record = RebalanceRecord(
+        day=day, universe=universe, objective_offset_int=response.objective_offset_int
+    )
 
     entries = list(response.results)
     solver_names = {entry.solver for entry in entries}
     if response.exact is not None:
         if response.exact.error is not None:
+            # Documented degradation: keep every solver selection, report null
+            # gaps, and record why the ground truth is missing.
             record.exact_error = response.exact.error
+            record.exact_too_large = response.exact.error == "TOO_LARGE"
+            record.exact_subsets = response.exact.subsets
+            logger.warning(
+                "%s exact ground truth unavailable (%s%s) — solver gaps are null",
+                day.isoformat(),
+                response.exact.error,
+                f", subsets={response.exact.subsets}"
+                if response.exact.subsets is not None else "",
+            )
         else:
             record.exact_available = True
             record.exact_runtime_ms = response.exact.runtime_ms
@@ -353,8 +388,12 @@ def _record_response(
                         record, "exact", bits, universe, config, schedules, data, day
                     )
                     record.objective_int["exact"] = response.exact.objective_int or 0
+                    record.portfolio_objective_int["exact"] = (
+                        response.exact.portfolio_objective_int
+                    )
                     record.gap_int["exact"] = 0
                     record.gap_rel["exact"] = 0.0
+                    record.gap_norm["exact"] = 0.0
                     record.feasible_raw["exact"] = True
                     record.repaired["exact"] = False
                     record.runtime_ms["exact"] = response.exact.runtime_ms or 0.0
@@ -370,8 +409,10 @@ def _record_response(
             record, entry.solver, entry.bits, universe, config, schedules, data, day
         )
         record.objective_int[entry.solver] = entry.objective_int
+        record.portfolio_objective_int[entry.solver] = entry.portfolio_objective_int
         record.gap_int[entry.solver] = entry.gap_int
         record.gap_rel[entry.solver] = entry.gap_rel
+        record.gap_norm[entry.solver] = entry.gap_norm
         record.feasible_raw[entry.solver] = entry.feasible_raw
         record.repaired[entry.solver] = entry.repaired
         record.runtime_ms[entry.solver] = entry.runtime_ms

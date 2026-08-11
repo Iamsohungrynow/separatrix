@@ -63,25 +63,34 @@ floats are for dynamics, integers are for keeping score.
 
 Solution *quality* is measured by the Separatrix workbench in the parent repo,
 which walks a real crypto universe forward and solves every rebalance with
-every solver **and** exact enumeration, so each gap is measured against a
-proven optimum rather than against another heuristic. From the first published
-study (39 assets, K=8, 234 weekly rebalances, 2022-02 → 2026-07, exact ground
-truth available on 100% of them):
+every solver **and** by exhaustive enumeration, so each gap is measured against
+a proven optimum rather than against another heuristic. Because the enumerator
+visits every feasible portfolio it also knows the *worst* one, which gives a
+scale-free score: `gap_norm` is how far along the achievable objective range a
+solver landed — 0 is optimal, 1 is the worst portfolio available.
 
-| Solver | Mean gap vs optimum | At the optimum | Mean runtime |
+From the published study (39 assets, K=8, 234 weekly rebalances, 2022-02 →
+2026-07, exact ground truth on **100%** of them, up to C(39,8) = 61.5M subsets
+per rebalance):
+
+| Solver | Median `gap_norm` | At the exact optimum | Mean runtime |
 | --- | ---: | ---: | ---: |
-| bSB | 0.10% | 13.2% | 1.6 ms |
-| SA | 0.14% | 1.7% | 1.0 ms |
-| PT | 0.18% | 0.0% | 5.2 ms |
-| dSB | 0.54% | 1.3% | 1.4 ms |
-| exact | 0 | 100% | 218.6 ms |
+| exact | 0 | 100% | 274.3 ms |
+| bSB | 0.031 | 15.0% | 2.2 ms |
+| SA | 0.079 | 0% | 1.4 ms |
+| PT | 0.110 | 0% | 4.9 ms |
+| dSB | 0.325 | 0% | 1.8 ms |
 
-Read that honestly: at this size exact enumeration is affordable and wins
-outright, so the heuristics' value is the ~140× speed-up for a ~0.1% objective
-concession — a trade that only starts to matter as C(N,K) explodes. The
-methodology, cost model, baselines, and limitations are in
-[`docs/workbench.md`](../docs/workbench.md); every figure above is reproducible
-with the command in that document.
+Read that honestly. Exact enumeration is affordable at this size and wins
+outright — it is the right choice here, and the heuristics are not close to
+free: bSB buys its 128× speed-up by landing about 3% of the way along the
+objective range, and dSB is frankly poor on these instances. The case for a
+heuristic begins only where `C(N,K)` stops being enumerable. Anyone reading
+"quantum-inspired solver beats classical" into this table is misreading it.
+
+The methodology, cost model, baselines, and limitations are in
+[`docs/workbench.md`](../docs/workbench.md), including the exact command that
+reproduces every figure above.
 
 ## Correctness
 

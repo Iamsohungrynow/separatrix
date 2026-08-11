@@ -11,6 +11,11 @@ import numpy as np
 
 DEFAULT_SOLVERS: tuple[str, ...] = ("bsb", "dsb", "sa", "pt", "exact")
 
+# What separatrix-cli caps C(N,K) at when the request omits max_exact_subsets.
+# Recorded in reports so a study that never sent the knob is still explicit
+# about the bound its "exact ground truth" claim was made under.
+DEFAULT_MAX_EXACT_SUBSETS = 20_000_000
+
 # Relative to the project root, tried in order after the SEPARATRIX_CLI env var.
 _BINARY_CANDIDATES = (
     Path("separatrix") / "target" / "release" / "separatrix-cli.exe",
@@ -46,6 +51,13 @@ class SolverResult:
     gap_int: int | None
     gap_rel: float | None
     runtime_ms: float
+    # objective_int + objective_offset_int: the portfolio objective without
+    # the constant P·K² the penalized QUBO carries. None on older binaries.
+    portfolio_objective_int: int | None = None
+    # Gap as a fraction of the full achievable objective spread (worst − best).
+    # Stable where gap_rel is not: it stays in [0, 1] even when the optimum
+    # sits near zero. None on binaries that predate the field.
+    gap_norm: float | None = None
 
 
 @dataclass(slots=True)
@@ -55,6 +67,7 @@ class ExactResult:
     runtime_ms: float | None
     error: str | None = None
     subsets: int | None = None
+    portfolio_objective_int: int | None = None
 
 
 @dataclass(slots=True)
@@ -64,6 +77,8 @@ class BridgeResponse:
     scale: float
     exact: ExactResult | None
     results: list[SolverResult]
+    # Quantized P·K² constant the penalized QUBO drops on the feasible set.
+    objective_offset_int: int | None = None
 
 
 @dataclass(slots=True)
@@ -198,7 +213,18 @@ def _parse_response(payload: dict[str, Any], expected_n: int) -> BridgeResponse:
     if not isinstance(scale, (int, float)):
         raise BridgeError(f"bad scale: {scale!r}")
 
-    return BridgeResponse(n=n, k=k, scale=float(scale), exact=exact, results=results)
+    offset = _parse_big_int(
+        payload.get("objective_offset_int"), "objective_offset_int", optional=True
+    )
+
+    return BridgeResponse(
+        n=n,
+        k=k,
+        scale=float(scale),
+        exact=exact,
+        results=results,
+        objective_offset_int=offset,
+    )
 
 
 def _parse_solver_result(entry: Any, n: int) -> SolverResult:
@@ -216,6 +242,9 @@ def _parse_solver_result(entry: Any, n: int) -> SolverResult:
     gap_rel = entry.get("gap_rel")
     if gap_rel is not None and not isinstance(gap_rel, (int, float)):
         raise BridgeError(f"{solver}: bad gap_rel {gap_rel!r}")
+    gap_norm = entry.get("gap_norm")
+    if gap_norm is not None and not isinstance(gap_norm, (int, float)):
+        raise BridgeError(f"{solver}: bad gap_norm {gap_norm!r}")
 
     weights_raw = entry.get("weights")
     if weights_raw is None:
@@ -227,8 +256,14 @@ def _parse_solver_result(entry: Any, n: int) -> SolverResult:
         weights = [float(w) for w in weights_raw]
 
     runtime_ms = entry.get("runtime_ms")
-    if not isinstance(runtime_ms, (int, float)):
+    if not isinstance(runtime_ms, (int, float)) or isinstance(runtime_ms, bool):
         raise BridgeError(f"{solver}: bad runtime_ms {runtime_ms!r}")
+
+    portfolio_objective_int = _parse_big_int(
+        entry.get("portfolio_objective_int"),
+        f"{solver}.portfolio_objective_int",
+        optional=True,
+    )
 
     return SolverResult(
         solver=solver,
@@ -239,7 +274,9 @@ def _parse_solver_result(entry: Any, n: int) -> SolverResult:
         repaired=bool(entry.get("repaired", False)),
         gap_int=gap_int,
         gap_rel=None if gap_rel is None else float(gap_rel),
+        gap_norm=None if gap_norm is None else float(gap_norm),
         runtime_ms=float(runtime_ms),
+        portfolio_objective_int=portfolio_objective_int,
     )
 
 
@@ -249,24 +286,53 @@ def _parse_exact(raw: Any, n: int) -> ExactResult | None:
     if not isinstance(raw, dict):
         raise BridgeError(f"bad exact block: {raw!r}")
     if "error" in raw:
-        subsets = raw.get("subsets")
-        if subsets is not None and not isinstance(subsets, int):
-            raise BridgeError(f"bad exact.subsets: {subsets!r}")
+        # Documented degradation (TOO_LARGE): the solvers still answered, they
+        # just have no proven optimum to be scored against. Never fatal — the
+        # caller keeps every selection and reports null gaps.
         return ExactResult(
             bits=None,
             objective_int=None,
             runtime_ms=None,
             error=str(raw["error"]),
-            subsets=subsets,
+            subsets=_parse_subsets(raw.get("subsets")),
         )
     bits = _parse_bits(raw.get("bits"), n, context="exact")
     objective_int = _parse_big_int(raw.get("objective_int"), "exact.objective_int")
     if objective_int is None:
         raise BridgeError("exact: missing objective_int")
     runtime_ms = raw.get("runtime_ms")
-    if not isinstance(runtime_ms, (int, float)):
+    if not isinstance(runtime_ms, (int, float)) or isinstance(runtime_ms, bool):
         raise BridgeError(f"exact: bad runtime_ms {runtime_ms!r}")
-    return ExactResult(bits=bits, objective_int=objective_int, runtime_ms=float(runtime_ms))
+    return ExactResult(
+        bits=bits,
+        objective_int=objective_int,
+        runtime_ms=float(runtime_ms),
+        portfolio_objective_int=_parse_big_int(
+            raw.get("portfolio_objective_int"),
+            "exact.portfolio_objective_int",
+            optional=True,
+        ),
+    )
+
+
+def _parse_subsets(raw: Any) -> int | None:
+    """C(N,K) reported alongside a TOO_LARGE exact block, as a JSON number.
+
+    Purely informational, so an unreadable value is dropped rather than
+    raised: losing the count must never cost the rebalance its solver results.
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float) and raw.is_integer():
+        return int(raw)
+    if isinstance(raw, str):
+        try:
+            return int(raw.strip(), 10)
+        except ValueError:
+            return None
+    return None
 
 
 def _parse_bits(raw: Any, n: int, context: str) -> list[int]:

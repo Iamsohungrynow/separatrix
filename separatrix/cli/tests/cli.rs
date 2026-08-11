@@ -96,6 +96,16 @@ fn full_pipeline_all_solvers() {
         assert_eq!(obj - exact_obj, gap, "{solver}: inconsistent gap");
         let gap_rel = r["gap_rel"].as_f64().unwrap();
         assert!(gap_rel >= 0.0);
+        // gap_norm is the gap as a fraction of the full achievable spread,
+        // so it is always in [0, 1] — that is the point of it.
+        let gap_norm = r["gap_norm"].as_f64().unwrap();
+        assert!(
+            (0.0..=1.0).contains(&gap_norm),
+            "{solver}: gap_norm {gap_norm} outside [0,1]"
+        );
+        let range: i128 = exact["objective_range_int"].as_str().unwrap().parse().unwrap();
+        assert!(range > 0, "objective range must be positive");
+        assert!((gap_norm - gap as f64 / range as f64).abs() < 1e-12);
         // gap_rel is the gap over the PORTFOLIO objective of the optimum.
         let expected = gap as f64 / (exact_portfolio.abs().max(1)) as f64;
         assert!(

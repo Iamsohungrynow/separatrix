@@ -6,6 +6,7 @@ Everything here is deterministic: geometric walks come from seeded
 """
 from __future__ import annotations
 
+import math
 import shutil
 from datetime import date, timedelta
 from pathlib import Path
@@ -77,9 +78,14 @@ class StubBridge:
     Selection is top-k by mu (a pure function of the inputs), unless
     ``scripted_bits`` provides an explicit bits vector per call index.
     ``fail_calls`` raises BridgeError on those call indices (0-based) to
-    exercise the fail-closed skip path. Every call is recorded with copies of
-    its inputs, which the lookahead test compares across runs.
+    exercise the fail-closed skip path. ``max_exact_subsets`` is honoured the
+    way the real CLI honours it: when C(N,K) exceeds the cap, exact degrades
+    to a TOO_LARGE block and every solver gap is null. Every call is recorded
+    with copies of its inputs, which the lookahead test compares across runs.
     """
+
+    # Quantized P·K² constant, as the real CLI reports it.
+    OFFSET_INT = 3_644_735_687
 
     def __init__(
         self,
@@ -127,6 +133,8 @@ class StubBridge:
         ones = sum(bits)
         weights = [bit / ones if ones else 0.0 for bit in bits]
         exact_objective = -1_000_000 - index
+        subsets = math.comb(n, int(k))
+        too_large = max_exact_subsets is not None and subsets > int(max_exact_subsets)
 
         results = [
             SolverResult(
@@ -136,9 +144,12 @@ class StubBridge:
                 objective_int=exact_objective + self.gap_int,
                 feasible_raw=True,
                 repaired=False,
-                gap_int=self.gap_int,
-                gap_rel=float(self.gap_int) / max(1, abs(exact_objective)),
+                gap_int=None if too_large else self.gap_int,
+                gap_rel=None if too_large else (
+                    float(self.gap_int) / max(1, abs(exact_objective + self.OFFSET_INT))
+                ),
                 runtime_ms=1.0,
+                portfolio_objective_int=exact_objective + self.gap_int + self.OFFSET_INT,
             )
             for solver in solvers
             if solver != "exact"
@@ -146,8 +157,20 @@ class StubBridge:
         exact = None
         if "exact" in solvers:
             exact = ExactResult(
-                bits=list(bits),
-                objective_int=exact_objective,
-                runtime_ms=0.5,
+                bits=None if too_large else list(bits),
+                objective_int=None if too_large else exact_objective,
+                runtime_ms=None if too_large else 0.5,
+                error="TOO_LARGE" if too_large else None,
+                subsets=subsets if too_large else None,
+                portfolio_objective_int=(
+                    None if too_large else exact_objective + self.OFFSET_INT
+                ),
             )
-        return BridgeResponse(n=n, k=int(k), scale=1.0, exact=exact, results=results)
+        return BridgeResponse(
+            n=n,
+            k=int(k),
+            scale=1.0,
+            exact=exact,
+            results=results,
+            objective_offset_int=self.OFFSET_INT,
+        )

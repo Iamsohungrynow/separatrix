@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import unittest
 from datetime import date, timedelta
+from pathlib import Path
 
 import numpy as np
 
+from agent.workbench import metrics
 from agent.workbench.baselines import default_baselines
+from agent.workbench.bridge import SeparatrixCli, discover_binary
 from agent.workbench.data import build_price_data
 from agent.workbench.walkforward import (
     WalkForwardConfig,
@@ -17,6 +21,8 @@ from agent.workbench.walkforward import (
 )
 
 from tests.workbench_synth import ASSETS8, StubBridge, flat_series, synthetic_series
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # The skip paths under test log warnings by design; keep test output clean.
 logging.getLogger("leash.workbench.walkforward").setLevel(logging.CRITICAL)
@@ -186,6 +192,90 @@ class RunWalkForwardTestCase(unittest.TestCase):
         self.assertEqual(len(result.strategies["one-over-n"].schedule), 12)
 
 
+class ExactTooLargeTestCase(unittest.TestCase):
+    """The documented degradation: no ground truth, but the study goes on."""
+
+    def test_capped_exact_keeps_selections_and_nulls_the_gaps(self) -> None:
+        data = small_data()
+        config = small_config(max_exact_subsets=1)  # C(8,2)=28 > 1 everywhere
+        bridge = StubBridge()
+        result = run_walkforward(
+            data, config, bridge, default_baselines(config.k, ASSETS8)
+        )
+
+        self.assertEqual(len(result.records), 12)
+        self.assertEqual(result.skips, [])  # never a skip, never a raise
+        for record in result.records:
+            self.assertIsNone(record.bridge_error)
+            self.assertTrue(record.exact_too_large)
+            self.assertEqual(record.exact_error, "TOO_LARGE")
+            self.assertEqual(record.exact_subsets, 28)
+            self.assertFalse(record.exact_available)
+            self.assertEqual(set(record.selection), {"sa"})
+            self.assertEqual(len(record.selection["sa"]), config.k)
+            self.assertIsNone(record.gap_int["sa"])
+            self.assertIsNone(record.gap_rel["sa"])
+            # The penalty-free objective is still reported and recorded.
+            self.assertIsNotNone(record.objective_offset_int)
+            self.assertEqual(
+                record.portfolio_objective_int["sa"],
+                record.objective_int["sa"] + record.objective_offset_int,
+            )
+
+        # Solver track still trades every week; only "exact" has no strategy.
+        self.assertEqual(len(result.strategies["separatrix-sa"].schedule), 12)
+        self.assertNotIn("separatrix-exact", result.strategies)
+
+
+@unittest.skipUnless(
+    discover_binary(REPO_ROOT) is not None,
+    "separatrix-cli binary not built; integration skipped",
+)
+class ExactTooLargeIntegrationTestCase(unittest.TestCase):
+    """Same degradation, end to end against the real solver binary.
+
+    This is the path the published study never exercised: a cap small enough
+    that exact enumeration always refuses, driven through the real CLI and the
+    real bridge parser.
+    """
+
+    def test_real_binary_walkforward_degrades_to_null_gaps(self) -> None:
+        data = small_data(seed=11)
+        config = small_config(
+            solvers=("bsb", "sa", "exact"),
+            max_exact_subsets=1,
+            budget={
+                "sb_steps": 100, "sb_replicas": 4,
+                "sa_sweeps": 100, "sa_restarts": 2,
+            },
+        )
+        binary = os.environ.get("SEPARATRIX_CLI") or discover_binary(REPO_ROOT)
+        bridge = SeparatrixCli(binary=Path(binary), timeout_seconds=120)
+
+        result = run_walkforward(data, config, bridge, {})
+
+        self.assertEqual(len(result.records), 12)
+        self.assertEqual([s.reason for s in result.skips], [])
+        for record in result.records:
+            self.assertIsNone(record.bridge_error)
+            self.assertTrue(record.exact_too_large)
+            self.assertEqual(record.exact_subsets, 28)  # C(8,2)
+            self.assertEqual(set(record.selection), {"bsb", "sa"})
+            for solver in ("bsb", "sa"):
+                self.assertEqual(len(record.selection[solver]), config.k)
+                self.assertIsNone(record.gap_int[solver])
+                self.assertIsNone(record.gap_rel[solver])
+                self.assertEqual(
+                    record.portfolio_objective_int[solver],
+                    record.objective_int[solver] + record.objective_offset_int,
+                )
+                self.assertIsInstance(record.runtime_ms[solver], float)
+
+        for name in ("separatrix-bsb", "separatrix-sa"):
+            self.assertEqual(len(result.strategies[name].schedule), 12)
+            self.assertEqual(set(result.strategies[name].sims), {0.0, 10.0, 30.0})
+
+
 class SimulateScheduleTestCase(unittest.TestCase):
     def test_hand_checked_turnover_and_costs_on_flat_prices(self) -> None:
         assets = ["AAA", "BBB", "CCC", "DDD"]
@@ -199,13 +289,18 @@ class SimulateScheduleTestCase(unittest.TestCase):
         # Entry pays full turnover 1; the switch pays |1-0| + |0-1| = 2.
         self.assertEqual(sim.turnovers, [1.0, 2.0])
         np.testing.assert_allclose(sim.costs, [0.001, 0.002])
-        self.assertAlmostEqual(sim.values[0], 0.999, places=12)
+        # values[0] is the capital committed, before the entry charge.
+        self.assertAlmostEqual(sim.values[0], 1.0, places=12)
+        self.assertAlmostEqual(sim.values[1], 0.999, places=12)
         self.assertAlmostEqual(sim.values[-1], 0.999 * 0.998, places=12)
 
-        # Flat prices: the only non-zero daily return is the switch cost.
+        # Flat prices: the only non-zero daily returns are the two charges —
+        # the entry cost on the first step, the switch cost at the switch.
         switch_index = (_day(17) - _day(10)).days - 1
         for i, r in enumerate(sim.daily_returns):
-            if i == switch_index:
+            if i == 0:
+                self.assertAlmostEqual(r, 0.999 - 1.0, places=12)
+            elif i == switch_index:
                 self.assertAlmostEqual(r, 0.998 - 1.0, places=12)
             else:
                 self.assertAlmostEqual(r, 0.0, places=12)
@@ -250,6 +345,52 @@ class SimulateScheduleTestCase(unittest.TestCase):
         self.assertEqual(by_date[_day(9)], 1.0)
         self.assertAlmostEqual(by_date[_day(10)], 1.2, places=12)
         self.assertAlmostEqual(by_date[_day(14)], 1.2, places=12)
+
+    def test_entry_cost_survives_into_the_return_series(self) -> None:
+        # Single rebalance, flat prices, 30 bps: the whole study is the entry
+        # charge. Hand-computed: turnover 1 x 30bps = 0.003 of capital, so the
+        # value path runs 1.0 -> 0.997 and the total return is -30 bps.
+        # Booking the charge into values[0] would divide it back out and leave
+        # every return-based metric reading exactly zero.
+        data = build_price_data(flat_series(["AAA", "BBB"], 10, START))
+        schedule = [(_day(0), weights_vector(data, {"AAA": 0.5, "BBB": 0.5}))]
+
+        sim = simulate_schedule(data, schedule, _day(9), bps=30.0)
+
+        self.assertEqual(sim.turnovers, [1.0])
+        np.testing.assert_allclose(sim.costs, [0.003])
+        self.assertAlmostEqual(sim.values[0], 1.0, places=12)
+        self.assertAlmostEqual(sim.values[-1], 0.997, places=12)
+
+        total_return = float(np.prod(1.0 + sim.daily_returns)) - 1.0
+        self.assertAlmostEqual(total_return, -0.003, places=12)
+        self.assertAlmostEqual(metrics.max_drawdown(sim.values), 0.003, places=12)
+        self.assertLess(metrics.annualized_return(sim.daily_returns), 0.0)
+
+    def test_schedule_entries_sharing_a_date_all_execute(self) -> None:
+        # Two entries land on the same day, then a third a week later. A
+        # pointer that only advances on an exact date match consumes the first
+        # and stalls, freezing the strategy on AAA forever.
+        series = {
+            "AAA": {_day(i): 100.0 for i in range(20)},
+            "BBB": {_day(i): 100.0 for i in range(20)},
+            "CCC": {_day(i): 100.0 * (2.0 if i >= 12 else 1.0) for i in range(20)},
+        }
+        data = build_price_data(series)
+        schedule = [
+            (_day(0), weights_vector(data, {"AAA": 1.0})),
+            (_day(0), weights_vector(data, {"BBB": 1.0})),
+            (_day(7), weights_vector(data, {"CCC": 1.0})),
+        ]
+
+        sim = simulate_schedule(data, schedule, _day(19), bps=0.0)
+
+        # One turnover per scheduled entry: entry, same-day switch, week-later
+        # switch — the invariant the report's per-rebalance averages assume.
+        self.assertEqual(sim.turnovers, [1.0, 2.0, 2.0])
+        self.assertEqual(len(sim.turnovers), len(schedule))
+        # CCC doubles on day 12; a frozen strategy would still be flat at 1.0.
+        self.assertAlmostEqual(sim.values[-1], 2.0, places=12)
 
     def test_empty_schedule_raises(self) -> None:
         data = build_price_data(flat_series(["AAA"], 5, START))

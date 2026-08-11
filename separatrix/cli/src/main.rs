@@ -82,6 +82,10 @@ enum ExactOut {
         /// `objective_int + objective_offset_int` — the portfolio objective,
         /// free of the cardinality penalty's constant term.
         portfolio_objective_int: String,
+        /// Objective of the WORST feasible k-subset.
+        worst_objective_int: String,
+        /// `worst − best`: the full achievable spread on the feasible set.
+        objective_range_int: String,
         runtime_ms: f64,
     },
     TooLarge {
@@ -101,6 +105,10 @@ struct SolverOut {
     repaired: bool,
     gap_int: Option<String>,
     gap_rel: Option<f64>,
+    /// `gap_int / (worst − best)`: the gap as a fraction of the full
+    /// achievable spread. Unlike `gap_rel` this stays meaningful when the
+    /// optimum sits near zero, so it is the stable headline measure.
+    gap_norm: Option<f64>,
     runtime_ms: f64,
 }
 
@@ -166,16 +174,20 @@ fn main() {
     // Ground truth first, so heuristic gaps can be computed as we go.
     let mut exact_out: Option<ExactOut> = None;
     let mut exact_obj: Option<i128> = None;
+    let mut exact_range: Option<i128> = None;
     if req.solvers.iter().any(|s| s == "exact") {
         let started = Instant::now();
         match exact_k(&qq, req.k, req.max_exact_subsets) {
-            Ok((bits, obj)) => {
-                exact_obj = Some(obj);
+            Ok(found) => {
+                exact_obj = Some(found.objective);
+                exact_range = Some(found.worst - found.objective);
                 exact_out = Some(ExactOut::Solved {
-                    bits,
-                    objective_int: obj.to_string(),
-                    portfolio_objective_int: portfolio_obj(obj).to_string(),
+                    objective_int: found.objective.to_string(),
+                    portfolio_objective_int: portfolio_obj(found.objective).to_string(),
+                    worst_objective_int: found.worst.to_string(),
+                    objective_range_int: (found.worst - found.objective).to_string(),
                     runtime_ms: elapsed_ms(started),
+                    bits: found.bits,
                 });
             }
             Err(Error::TooManySubsets { subsets, .. }) => {
@@ -237,16 +249,17 @@ fn main() {
         let runtime_ms = elapsed_ms(started);
 
         let objective = qq.objective(&bits);
-        let (gap_int, gap_rel) = match exact_obj {
+        let (gap_int, gap_rel, gap_norm) = match exact_obj {
             Some(e) => {
                 let gap = objective - e;
                 // Normalize by the PORTFOLIO objective of the optimum. Using
                 // the raw QUBO value would divide by the penalty constant and
                 // understate the gap by orders of magnitude.
                 let denom = portfolio_obj(e).abs().max(1) as f64;
-                (Some(gap.to_string()), Some(gap as f64 / denom))
+                let norm = exact_range.map(|r| gap as f64 / r.max(1) as f64);
+                (Some(gap.to_string()), Some(gap as f64 / denom), norm)
             }
-            None => (None, None),
+            None => (None, None, None),
         };
         let weights: Vec<f64> = bits
             .iter()
@@ -263,6 +276,7 @@ fn main() {
             repaired: !feasible_raw,
             gap_int,
             gap_rel,
+            gap_norm,
             runtime_ms,
         });
     }
