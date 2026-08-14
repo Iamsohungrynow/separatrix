@@ -1428,6 +1428,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
+name = "separatrix-program"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "blake3",
+ "borsh 1.2.1",
+ "bytemuck",
+ "indexmap",
+ "rayon",
+ "rayon-core",
+ "serde",
+ "serde_derive",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"

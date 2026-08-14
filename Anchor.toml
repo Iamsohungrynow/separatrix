@@ -4,9 +4,11 @@ skip-lint = false
 
 [programs.localnet]
 leash = "EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV"
+separatrix_program = "CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp"
 
 [programs.devnet]
 leash = "EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV"
+separatrix_program = "CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp"
 
 [provider]
 cluster = "Devnet"

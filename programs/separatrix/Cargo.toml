@@ -1,0 +1,37 @@
+[package]
+name = "separatrix-program"
+version = "0.1.0"
+description = "Separatrix: on-chain commitment and verification of portfolio allocations"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "separatrix_program"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+# Every pin below exists for one reason: the Solana 1.18 SBF toolchain ships
+# rustc 1.75 / cargo 1.75, and newer releases of these crates either raise the
+# MSRV or resolve through edition2024 manifests cargo 1.75 cannot parse. They
+# are copied deliberately from programs/leash/Cargo.toml so both programs
+# resolve to one lockfile. Do not "helpfully" update them.
+[dependencies]
+anchor-lang = "0.30.1"
+# `#[account(zero_copy)]` expands to bytemuck derives, so the crate must be a
+# direct dependency. `min_const_generics` is what lets Pod/Zeroable derive on
+# the coefficient array, which is far longer than bytemuck's default 32.
+bytemuck = { version = "1", features = ["derive", "min_const_generics"] }
+blake3 = "=1.5.0"
+borsh1 = { package = "borsh", version = "=1.2.1" }
+rayon = "=1.10.0"
+rayon-core = "=1.12.1"
+indexmap = "=2.2.6"
+unicode-segmentation = "=1.10.1"
+serde = "=1.0.217"
+serde_derive = "=1.0.217"
