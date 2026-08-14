@@ -29,6 +29,17 @@ jobs:
         run: npm ci
       - name: Run TypeScript checks
         run: npm run lint:ts
+      - name: Guard the SBF lockfile (cargo 1.75 reads v3 only)
+        run: npm run check:sbf-lockfile
+      # Regenerate to a scratch path (NOT via `npm run -- <path>`, which appends
+      # the argument after the script's own and would rewrite the committed
+      # file, making this diff pass trivially).
+      - name: Committed IDLs match their generators
+        run: |
+          node scripts/gen-idl.js "$RUNNER_TEMP/leash.json"
+          node scripts/gen-separatrix-idl.js "$RUNNER_TEMP/separatrix.json"
+          diff -u idl/leash.json "$RUNNER_TEMP/leash.json"
+          diff -u idl/separatrix.json "$RUNNER_TEMP/separatrix.json"
 
   separatrix-crate:
     runs-on: ubuntu-latest

@@ -1,5 +1,5 @@
 [workspace]
-members = ["programs/leash"]
+members = ["programs/leash", "programs/separatrix"]
 # The separatrix crate is its own workspace: its modern dependency tree must
 # never enter this lockfile, which the SBF toolchain's cargo 1.75 parses (v3).
 exclude = ["separatrix"]

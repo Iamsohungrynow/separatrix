@@ -67,6 +67,10 @@ struct Request {
     seed: u64,
     #[serde(default = "d_max_subsets")]
     max_exact_subsets: u64,
+    /// Also emit the quantized objective matrix in the exact form the Solana
+    /// program stores and seals it against.
+    #[serde(default)]
+    emit_qubo: bool,
 }
 
 fn d_max_subsets() -> u64 {
@@ -112,6 +116,23 @@ struct SolverOut {
     runtime_ms: f64,
 }
 
+/// The quantized problem exactly as the on-chain program stores it:
+/// upper-triangular, row-major, `n(n+1)/2` i64 terms with the diagonal
+/// included. `q_hash` is sha256 over those terms' little-endian bytes — the
+/// digest `seal_study` recomputes before freezing a study.
+#[derive(Serialize)]
+struct QuboExport {
+    n: usize,
+    term_count: usize,
+    coefficients: Vec<i64>,
+    q_hash: String,
+    offset_int: String,
+    scale: f64,
+    /// `f64::to_bits(scale)` — what `create_study` stores and what the seal
+    /// digest binds, so the client never has to re-derive it.
+    scale_bits: u64,
+}
+
 #[derive(Serialize)]
 struct Response {
     n: usize,
@@ -123,6 +144,56 @@ struct Response {
     objective_offset_int: String,
     exact: Option<ExactOut>,
     results: Vec<SolverOut>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    qubo: Option<QuboExport>,
+}
+
+/// Row-major upper-triangular index for `i <= j`, matching
+/// `triangular_index` in the Solana program. The two must agree exactly or
+/// the chain scores a different matrix than the solver optimized.
+fn triangular_index(n: usize, i: usize, j: usize) -> usize {
+    let (i, j) = if i <= j { (i, j) } else { (j, i) };
+    i * n - i * i.saturating_sub(1) / 2 + (j - i)
+}
+
+/// Must match `QUBO_DOMAIN` in programs/separatrix/src/lib.rs.
+const QUBO_DOMAIN: &[u8] = b"separatrix:qubo:v1";
+
+/// Reproduce the digest `seal_study` recomputes on-chain. The preimage binds
+/// the whole instance — n, k, scale and the penalty offset, not just the
+/// coefficient bytes — so a matrix cannot be re-sealed under a different
+/// cardinality or offset. Any divergence here and a study can never be sealed.
+fn export_qubo(qq: &QuantizedQubo, k: usize, offset_int: i128) -> QuboExport {
+    use sha2::{Digest, Sha256};
+    let n = qq.n();
+    let term_count = n * (n + 1) / 2;
+    let mut coefficients = vec![0i64; term_count];
+    for i in 0..n {
+        for j in i..n {
+            coefficients[triangular_index(n, i, j)] = qq.term(i, j);
+        }
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(QUBO_DOMAIN);
+    hasher.update([n as u8, k as u8]);
+    hasher.update(qq.scale.to_bits().to_le_bytes());
+    hasher.update(offset_int.to_le_bytes());
+    for value in &coefficients {
+        hasher.update(value.to_le_bytes());
+    }
+    QuboExport {
+        n,
+        term_count,
+        coefficients,
+        q_hash: hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect(),
+        offset_int: offset_int.to_string(),
+        scale: qq.scale,
+        scale_bits: qq.scale.to_bits(),
+    }
 }
 
 fn fail(msg: impl std::fmt::Display) -> ! {
@@ -288,6 +359,11 @@ fn main() {
         objective_offset_int: offset_int.to_string(),
         exact: exact_out,
         results,
+        qubo: if req.emit_qubo {
+            Some(export_qubo(&qq, req.k, offset_int))
+        } else {
+            None
+        },
     };
     match serde_json::to_string(&response) {
         Ok(line) => println!("{line}"),

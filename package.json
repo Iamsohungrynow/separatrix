@@ -5,6 +5,8 @@
   "scripts": {
     "build:anchor": "anchor build",
     "gen:idl": "node scripts/gen-idl.js idl/leash.json",
+    "gen:idl:separatrix": "node scripts/gen-separatrix-idl.js idl/separatrix.json",
+    "check:sbf-lockfile": "node scripts/check-sbf-lockfile.js",
     "devnet:init": "ts-node scripts/devnet-leash.ts init",
     "devnet:status": "ts-node scripts/devnet-leash.ts status",
     "devnet:status-json": "ts-node scripts/devnet-leash.ts status-json",
