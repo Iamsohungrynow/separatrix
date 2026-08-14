@@ -15,6 +15,9 @@ Use this folder as the stable entrypoint for project context.
 - [`ROADMAP.md`](ROADMAP.md): delivery phases and non-goals
 - [`workbench.md`](workbench.md): Separatrix portfolio formulation, walk-forward
   rules, evaluation standards, and the Python/Rust solver protocol
+- [`onchain.md`](onchain.md): the separatrix program's byte-level contract —
+  account sizes and rent, both hash preimages, the LSB-first bitmap, measured
+  compute units, and what the program does *not* prove
 
 ## When To Read What
 

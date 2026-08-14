@@ -16,9 +16,16 @@
     "devnet:resume": "ts-node scripts/devnet-leash.ts resume",
     "devnet:withdraw": "ts-node scripts/devnet-leash.ts withdraw",
     "devnet:smoke": "ts-node scripts/devnet-leash.ts smoke",
+    "separatrix:create": "ts-node scripts/devnet-separatrix.ts create",
+    "separatrix:publish": "ts-node scripts/devnet-separatrix.ts publish",
+    "separatrix:reveal": "ts-node scripts/devnet-separatrix.ts reveal",
+    "separatrix:status": "ts-node scripts/devnet-separatrix.ts status",
+    "separatrix:smoke": "ts-node scripts/devnet-separatrix.ts smoke",
+    "separatrix:measure": "ts-node scripts/devnet-separatrix.ts measure",
     "test:anchor": "ts-mocha -p tsconfig.json -t 1000000 tests/anchor/*.ts",
     "test:anchor:workflow": "anchor test",
     "verify:owner-ix": "node scripts/verify-owner-ix.js",
+    "verify:separatrix-idl": "node scripts/separatrix-idl-verify.js",
     "lint:ts": "tsc --noEmit"
   },
   "devDependencies": {

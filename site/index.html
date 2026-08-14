@@ -78,7 +78,7 @@
     <li>Property tests enforce that no heuristic ever reports an energy below the exact ground state.</li>
   </ul>
 
-  <p class="status"><b>status:</b> v0.1 solver core. Portfolio workbench, walk-forward benchmarks, and the Solana commitment program are in development — no results are claimed before they ship.</p>
+  <p class="status"><b>status:</b> v0.1 solver core, shipped. So are the other two: the walk-forward workbench (39 assets, K=8, 234 rebalances, exact ground truth on 100% of them — and exact enumeration beats every heuristic at that size), and the Solana commitment program on devnet, where the chain re-derived a committed allocation's objective and got the solver's integer exactly. The workbench study is a report, not a chain record; it is not published on-chain. Still not built, and not claimed: no browser WASM demo, no run on real quantum hardware, no solver bounty.</p>
 
   <footer>Simulated bifurcation is a classical algorithm; this project claims no quantum advantage — that honesty is the point. · <code>cargo add separatrix</code></footer>
 </main>

@@ -8,6 +8,24 @@ declare_id!("CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp");
 /// under the 10,240-byte limit on CPI-created accounts.
 pub const MAX_ASSETS: usize = 48;
 pub const MAX_TERMS: usize = MAX_ASSETS * (MAX_ASSETS + 1) / 2;
+/// Largest selection this program will accept, chosen so that **anything
+/// publishable is revealable**.
+///
+/// `reveal_allocation` costs about `7_441 + 179 * k(k+1)/2` compute units
+/// (measured on a validator running this binary; see `docs/onchain.md`), and a
+/// single-instruction transaction gets Solana's default 200,000. That budget
+/// runs out at `k = 46`. Without this cap an operator could seal a study at
+/// `k = 48`, publish a commitment — irreversibly advancing `published_count` —
+/// and then be unable to reveal it with any client in this repo, manufacturing
+/// the exact unrevealed-allocation signal the record treats as a red flag. At
+/// `k = 40` the reveal costs roughly 154,000 CU, leaving ~23% headroom.
+pub const MAX_CARDINALITY: usize = 40;
+/// Bound on the penalty constant a study may carry. `objective` is bounded by
+/// `MAX_TERMS * MAX_ABS_COEFFICIENT` (~2.5e12), so an offset within i64 keeps
+/// `portfolio_objective` far inside i128. Unbounded, an offset near i128::MAX
+/// would make every reveal fail with `Overflow` — sealing a study nobody could
+/// ever score.
+pub const MAX_ABS_OFFSET: i128 = i64::MAX as i128;
 /// Coefficients per `write_coefficients` call. A Solana transaction is ~1232
 /// bytes, so 96 i64 (768 bytes) plus accounts and overhead fits comfortably.
 pub const MAX_CHUNK: usize = 96;
@@ -70,6 +88,19 @@ pub mod separatrix {
         require!(n as usize <= MAX_ASSETS, ErrorCode::UniverseTooLarge);
         require!(n >= 1, ErrorCode::InvalidCardinality);
         require!(k >= 1 && k <= n, ErrorCode::InvalidCardinality);
+        require!(
+            k as usize <= MAX_CARDINALITY,
+            ErrorCode::CardinalityTooLarge
+        );
+        // Reject offsets that would make the reveal's checked_add overflow.
+        // The coefficient bound is enforced on the way in; this is its
+        // counterpart for the constant, and without it a study can be sealed
+        // into a state where no allocation is scoreable.
+        let offset = i128::from_le_bytes(offset_int_le);
+        require!(
+            offset >= -MAX_ABS_OFFSET && offset <= MAX_ABS_OFFSET,
+            ErrorCode::OffsetOutOfRange
+        );
 
         let mut study = ctx.accounts.study.load_init()?;
         study.authority = ctx.accounts.authority.key();
@@ -106,8 +137,12 @@ pub mod separatrix {
         // Bounding magnitudes here is what makes the scoring loop's
         // accumulator provably overflow-free later.
         for value in values.iter() {
+            // Range-compare rather than `abs()`: `i64::MIN.abs()` panics, which
+            // would abort the transaction instead of returning a typed error —
+            // and in a release build without overflow checks it would wrap to
+            // a negative number and pass the bound entirely.
             require!(
-                value.abs() <= MAX_ABS_COEFFICIENT,
+                *value >= -MAX_ABS_COEFFICIENT && *value <= MAX_ABS_COEFFICIENT,
                 ErrorCode::CoefficientOutOfRange
             );
         }
@@ -333,10 +368,15 @@ pub fn triangular_index(n: usize, i: usize, j: usize) -> usize {
 pub struct CreateStudy<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
-    /// CHECK: recorded as the only key allowed to publish allocations to this
-    /// study. It does not sign here — an authority may open a study for an
-    /// agent that does not exist yet, exactly as leash does.
-    pub agent: UncheckedAccount<'info>,
+    /// The only key allowed to publish allocations to this study.
+    ///
+    /// It signs, unlike leash's agent, because the semantics are opposite:
+    /// leash *constrains* an agent (no consent needed to put someone on a
+    /// leash), while a study *attributes a track record* to one. `Study.agent`
+    /// is memcmp-indexable, so without a signature anyone could open unlimited
+    /// studies naming someone else's pubkey and pollute a lookup of that
+    /// agent's record. Attribution has to be consensual.
+    pub agent: Signer<'info>,
     #[account(
         init,
         payer = authority,
@@ -529,6 +569,10 @@ pub enum ErrorCode {
     EmptySalt,
     #[msg("coefficient magnitude exceeds the quantization bound")]
     CoefficientOutOfRange,
+    #[msg("cardinality exceeds MAX_CARDINALITY; a larger k could not be revealed within the default compute budget")]
+    CardinalityTooLarge,
+    #[msg("penalty offset magnitude would risk overflow when scoring")]
+    OffsetOutOfRange,
     #[msg("arithmetic overflow")]
     Overflow,
 }

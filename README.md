@@ -207,12 +207,17 @@ Its point is measurement discipline rather than any performance claim: every reb
 
 The published study covers 39 assets, K=8 and 234 weekly rebalances with exact ground truth on **100%** of them. The result it reports is not a win: exact enumeration is affordable at this size and beats every heuristic, with bSB landing ~3% along the objective range for a 128× speed-up and dSB doing poorly. No quantum advantage is claimed anywhere — the baselines and the ground truth exist precisely to keep the claims small and checkable.
 
+A second Anchor program, [`separatrix`](programs/separatrix/), implements the commit-and-verify mechanism a record like that could one day stand on — deployed on devnet at [`CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp`](https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet). It exploits the same asymmetry the project is built on: choosing the best K-of-N portfolio is NP-hard, but *checking* what one scores is O(K²) integer additions. So an agent commits `hash(allocation‖salt)` before the market moves, and on reveal the program re-derives the objective itself from a problem matrix frozen against a hash.
+
+**The walk-forward study above is not on-chain.** It was run off-chain and is published as a report. The studies the program has actually carried are separate and much smaller — created to exercise and measure it, within its limits of N ≤ 48 and K ≤ 40 — and wiring the workbench's live rebalances into it is not done. What is verified live is the mechanism, on one of those studies: the objective the chain computed equals the solver's, exactly ([reveal tx](https://explorer.solana.com/tx/DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB?cluster=devnet), N=8, K=4, 8,554 CU). Verification cost tracks K, not the universe: 8.5k CU at K=4 through 61k at K=24, barely moving as N goes 8 → 48, and 154k at the program's K=40 ceiling.
+
+What it deliberately does not prove: nothing on a public chain can force a reveal, so the program makes selective silence *countable* instead — one bound agent that signs to accept the binding, strictly monotonic sequences, and both `published_count` and `revealed_count` on-chain. Quote both numbers or you are misreading the record. And that counting is per study: nothing links an agent's studies together, so an agent can always abandon an awkward one and open a fresh pair of counters. [`docs/onchain.md`](docs/onchain.md) §7 is the full list of what this does not prove.
+
 - [`docs/workbench.md`](docs/workbench.md) — formulation, walk-forward rules, evaluation standards, solver protocol
+- [`docs/onchain.md`](docs/onchain.md) — account layout, the two preimages byte by byte, measured compute units
 - [`separatrix/README.md`](separatrix/README.md) — the crate
 - `dashboard/workbench.html` — the study rendered as notebook cells
 - [separatrix.vercel.app](https://separatrix.vercel.app) — project page
-
-Planned next: an Anchor program that commits each allocation on-chain before execution and re-scores it in-program, with spends metered through Leash.
 
 ## Origin
 
