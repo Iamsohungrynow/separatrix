@@ -26,7 +26,8 @@
           "signer": true
         },
         {
-          "name": "agent"
+          "name": "agent",
+          "signer": true
         },
         {
           "name": "study",
@@ -522,6 +523,16 @@
     },
     {
       "code": 6020,
+      "name": "CardinalityTooLarge",
+      "msg": "cardinality exceeds MAX_CARDINALITY; a larger k could not be revealed within the default compute budget"
+    },
+    {
+      "code": 6021,
+      "name": "OffsetOutOfRange",
+      "msg": "penalty offset magnitude would risk overflow when scoring"
+    },
+    {
+      "code": 6022,
       "name": "Overflow",
       "msg": "arithmetic overflow"
     }

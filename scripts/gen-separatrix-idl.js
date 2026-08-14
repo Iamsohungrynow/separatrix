@@ -61,7 +61,7 @@ const idl = {
       discriminator: disc("global", "create_study"),
       accounts: [
         { name: "authority", writable: true, signer: true },
-        { name: "agent" },
+        { name: "agent", signer: true },
         { name: "study", writable: true, pda: studyPdaByArg },
         SYSTEM_PROGRAM
       ],
@@ -154,7 +154,9 @@ const idl = {
     { code: 6017, name: "EmptyCommitment", msg: "commitment must not be all zeroes" },
     { code: 6018, name: "EmptySalt", msg: "salt must not be all zeroes" },
     { code: 6019, name: "CoefficientOutOfRange", msg: "coefficient magnitude exceeds the quantization bound" },
-    { code: 6020, name: "Overflow", msg: "arithmetic overflow" }
+    { code: 6020, name: "CardinalityTooLarge", msg: "cardinality exceeds MAX_CARDINALITY; a larger k could not be revealed within the default compute budget" },
+    { code: 6021, name: "OffsetOutOfRange", msg: "penalty offset magnitude would risk overflow when scoring" },
+    { code: 6022, name: "Overflow", msg: "arithmetic overflow" }
   ],
   types: [
     {
