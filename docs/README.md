@@ -18,6 +18,9 @@ Use this folder as the stable entrypoint for project context.
 - [`onchain.md`](onchain.md): the separatrix program's byte-level contract —
   account sizes and rent, both hash preimages, the LSB-first bitmap, measured
   compute units, and what the program does *not* prove
+- [`quantum.md`](quantum.md): the *only* genuinely quantum step in the project
+  (`scripts/heron_qaoa.py`) — what QAOA does here, what will and will not be
+  claimed, current IBM Quantum access/pricing, and how to run it on hardware
 
 ## When To Read What
 
