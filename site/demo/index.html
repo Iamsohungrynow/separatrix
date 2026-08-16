@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>separatrix — solve a portfolio in your browser</title>
+<meta name="description" content="Run simulated bifurcation, simulated annealing, parallel tempering and exact enumeration on real crypto covariance data, in your browser. Watch exact enumeration fall off a cliff as the universe grows.">
+<style>
+  :root {
+    --bg: #12181A;
+    --surface: #1A2124;
+    --surface-2: #202A2E;
+    --ink: #E4EAE7;
+    --ink-soft: #94A29D;
+    --line: #2A3438;
+    --acc: #43BCA9;
+    --acc2: #D68F52;
+    --warn: #D6685A;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; padding: 2.5rem 1.25rem 5rem;
+  }
+  main { max-width: 54rem; margin: 0 auto; }
+  a { color: var(--acc); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover, a:focus-visible { border-bottom-color: var(--acc); outline: none; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--acc);
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(1.9rem, 5vw, 2.7rem);
+    line-height: 1.12; margin: 0.4rem 0 0.8rem; text-wrap: balance;
+  }
+  .lede { color: var(--ink-soft); max-width: 46rem; }
+  .lede code { color: var(--acc2); font-family: var(--mono); font-size: 0.9em; }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 1.25rem; margin-top: 1.8rem;
+  }
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1.1rem 1.6rem; }
+  .ctl label {
+    display: block; font-family: var(--mono); font-size: 0.72rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 0.35rem;
+  }
+  .ctl .val { color: var(--acc); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  select {
+    width: 100%; background: var(--surface-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 4px; padding: 0.4rem 0.5rem;
+    font-family: var(--mono); font-size: 0.85rem;
+  }
+
+  .space { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--line); }
+  .space .k { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em;
+              text-transform: uppercase; color: var(--ink-soft); }
+  .space .n {
+    font-family: var(--mono); font-size: clamp(1.5rem, 5vw, 2.4rem); color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1.15; word-break: break-all;
+  }
+  .space .note { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.3rem; }
+  .space .note.over { color: var(--acc2); }
+
+  button.run {
+    margin-top: 1.3rem; width: 100%; padding: 0.75rem 1rem;
+    background: var(--acc); color: #06201C; border: 0; border-radius: 5px;
+    font-family: var(--mono); font-size: 0.9rem; font-weight: 700; letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  button.run:hover { filter: brightness(1.08); }
+  button.run:disabled { opacity: 0.55; cursor: progress; }
+
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.82rem; margin-top: 0.4rem; }
+  th {
+    text-align: right; font-weight: 500; font-size: 0.68rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); padding: 0.4rem 0.55rem;
+    border-bottom: 1px solid var(--line);
+  }
+  th:first-child, td:first-child { text-align: left; }
+  td { text-align: right; padding: 0.5rem 0.55rem; border-bottom: 1px solid var(--line);
+       font-variant-numeric: tabular-nums; }
+  tr.exact td { background: rgba(67, 188, 169, 0.09); }
+  tr.exact td:first-child { color: var(--acc); font-weight: 600; }
+  .bar { height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; min-width: 4rem; }
+  .bar span { display: block; height: 100%; background: var(--acc2); }
+  .bar span.zero { background: var(--acc); }
+  .pick { margin-top: 0.9rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .pick b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
+  .verdict { margin-top: 1rem; padding: 0.8rem 1rem; border-left: 2px solid var(--acc);
+             background: var(--surface-2); border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .verdict.wall { border-left-color: var(--acc2); }
+  .status { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.8rem; }
+  .status.err { color: var(--warn); }
+  footer { margin-top: 2.5rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .overflow { overflow-x: auto; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow"><a href="../">separatrix</a> · live demo</p>
+  <h1>Pick 8 of 39 crypto assets. There are 61 million ways.</h1>
+  <p class="lede">
+    This page runs the real solver — the same Rust crate the study uses, compiled to
+    WebAssembly — against real covariance from Binance daily closes. Choose how many
+    assets to consider and how many to hold, then watch <em>exact enumeration</em>
+    check every possible portfolio while simulated bifurcation guesses in milliseconds.
+    Drag the universe up and the exact column falls off a cliff. That cliff is the
+    whole argument for heuristics; below it, they are a losing trade.
+  </p>
+
+  <section class="panel">
+    <div class="controls">
+      <div class="ctl">
+        <label for="n">Universe <span class="val" id="n-val">20</span> assets</label>
+        <input type="range" id="n" min="6" max="39" value="20" step="1">
+      </div>
+      <div class="ctl">
+        <label for="k">Hold <span class="val" id="k-val">6</span> of them</label>
+        <input type="range" id="k" min="2" max="14" value="6" step="1">
+      </div>
+      <div class="ctl">
+        <label for="steps">Heuristic effort <span class="val" id="steps-val">1500</span></label>
+        <input type="range" id="steps" min="200" max="6000" value="1500" step="100">
+      </div>
+      <div class="ctl">
+        <label for="cap">Exact enumeration budget</label>
+        <select id="cap">
+          <option value="2000000">2 million subsets (fast)</option>
+          <option value="20000000" selected>20 million (a second or two)</option>
+          <option value="200000000">200 million (slow — be patient)</option>
+          <option value="0">off — heuristics only</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="space">
+      <div class="k">Portfolios to check for a proven optimum</div>
+      <div class="n" id="space-n">38,760</div>
+      <div class="note" id="space-note">Well inside the budget — exact will run.</div>
+    </div>
+
+    <button class="run" id="run">Solve</button>
+    <p class="status" id="status">Loading solver…</p>
+  </section>
+
+  <section class="panel" id="results-panel" hidden>
+    <div class="overflow">
+      <table>
+        <thead>
+          <tr>
+            <th>Solver</th><th>Objective</th><th>Gap</th><th>How far off</th><th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+    <p class="pick" id="pick"></p>
+    <div class="verdict" id="verdict"></div>
+  </section>
+
+  <footer>
+    Objective: minimize <code>(1/k²)·xᵀΣx − (λ/k)·μᵀx</code> over exactly k assets, quantized to
+    integers so every solver is scored on identical arithmetic. “How far off” is the gap as a
+    fraction of the range between the best and worst possible portfolio, so 0 % is optimal and
+    100 % is the worst choice available. Instance: <span id="inst-date">…</span>, 90-day mean
+    return and 180-day shrunk covariance. Simulated bifurcation is a classical algorithm and no
+    quantum advantage is claimed — <a href="https://github.com/Iamsohungrynow/separatrix">source</a>.
+  </footer>
+</main>
+
+<script type="module">
+"use strict";
+const $ = (id) => document.getElementById(id);
+const worker = new Worker("./worker.js");
+
+let nextId = 0;
+const pending = new Map();
+worker.onmessage = (e) => {
+  const { id, ok, result, error } = e.data;
+  const entry = pending.get(id);
+  if (!entry) return;
+  pending.delete(id);
+  ok ? entry.resolve(result) : entry.reject(new Error(error));
+};
+// A worker that fails to parse or load never answers, so without this every
+// pending promise would hang and the page would sit on "Loading solver…"
+// forever with no clue why.
+function failAll(message) {
+  for (const [, entry] of pending) entry.reject(new Error(message));
+  pending.clear();
+  $("status").className = "status err";
+  $("status").textContent = message;
+}
+worker.onerror = (e) => failAll(`Solver worker failed: ${e.message || "load error"}`);
+worker.onmessageerror = () => failAll("Solver worker sent an unreadable message.");
+function ask(kind, payload) {
+  const id = nextId++;
+  return new Promise((resolve, reject) => {
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ id, kind, payload });
+  });
+}
+
+let INSTANCE = null;
+const groupDigits = (s) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+const pct = (v) => (100 * v).toFixed(2) + " %";
+const ms = (v) => (v < 1 ? v.toFixed(2) : v < 1000 ? v.toFixed(1) : (v / 1000).toFixed(2) + " s");
+const msUnit = (v) => (v < 1000 ? " ms" : "");
+
+function currentSpace() {
+  const n = Number($("n").value);
+  const k = Math.min(Number($("k").value), n);
+  return { n, k, cap: Number($("cap").value) };
+}
+
+async function refreshSpace() {
+  const { n, k, cap } = currentSpace();
+  $("n-val").textContent = n;
+  $("k-val").textContent = k;
+  $("steps-val").textContent = $("steps").value;
+  const count = await ask("subsets", { n, k });
+  $("space-n").textContent = groupDigits(count);
+  const big = BigInt(count);
+  const note = $("space-note");
+  if (cap === 0) {
+    note.textContent = "Exact enumeration is off — nothing to compare the heuristics against.";
+    note.className = "note over";
+  } else if (big > BigInt(cap)) {
+    note.textContent = `Past the ${groupDigits(String(cap))} budget. Exact will be skipped — this is the wall.`;
+    note.className = "note over";
+  } else {
+    note.textContent = "Inside the budget — the optimum will be proven, not estimated.";
+    note.className = "note";
+  }
+}
+
+function slice(n) {
+  // Take the first n assets of the study universe, so the same n is always
+  // the same instance and results are comparable across runs.
+  const mu = INSTANCE.mu.slice(0, n);
+  const sigma = [];
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) sigma.push(INSTANCE.sigma[i][j]);
+  return { mu, sigma, tickers: INSTANCE.tickers.slice(0, n) };
+}
+
+function render(report, tickers) {
+  const body = $("results");
+  body.innerHTML = "";
+  const rows = [];
+  if (report.exact) {
+    rows.push({
+      name: "exact", objective: report.exact.objective_int, gap: "0", norm: 0,
+      millis: report.exact.millis, exact: true,
+      selection: report.exact.selection,
+    });
+  }
+  for (const r of report.results) {
+    rows.push({
+      name: r.solver, objective: r.objective_int, gap: r.gap_int, norm: r.gap_norm,
+      millis: r.millis, exact: false, selection: r.selection,
+    });
+  }
+  rows.sort((a, b) => (a.norm ?? 9) - (b.norm ?? 9));
+
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    if (row.exact) tr.className = "exact";
+    const width = row.norm == null ? 0 : Math.max(1.5, Math.min(100, row.norm * 100));
+    tr.innerHTML =
+      `<td>${row.name}</td>` +
+      `<td>${groupDigits(row.objective)}</td>` +
+      `<td>${row.gap == null ? "—" : groupDigits(row.gap)}</td>` +
+      `<td>${row.norm == null ? "—" :
+        `<div style="display:flex;align-items:center;gap:.5rem;justify-content:flex-end">` +
+        `<span>${pct(row.norm)}</span><div class="bar" style="width:5rem">` +
+        `<span class="${row.norm === 0 ? "zero" : ""}" style="width:${width}%"></span></div></div>`}</td>` +
+      `<td>${ms(row.millis)}${msUnit(row.millis)}</td>`;
+    body.appendChild(tr);
+  }
+
+  const best = rows[0];
+  $("pick").innerHTML =
+    `Best portfolio found: <b>${best.selection.map((i) => tickers[i]).join(" · ")}</b>`;
+
+  const verdict = $("verdict");
+  if (!report.exact) {
+    verdict.className = "verdict wall";
+    verdict.innerHTML =
+      `<strong>No ground truth here.</strong> ${groupDigits(report.subsets)} portfolios is past the ` +
+      `enumeration budget, so nothing on this table is known to be optimal — the solvers can only be ` +
+      `compared to each other. This is the regime heuristics exist for, and also the regime where an ` +
+      `honest project stops quoting optimality gaps.`;
+  } else {
+    const fastest = report.results.reduce((a, b) => (a.millis <= b.millis ? a : b));
+    const winners = report.results.filter((r) => r.is_optimal).map((r) => r.solver);
+    const speedup = report.exact.millis / Math.max(fastest.millis, 0.001);
+    verdict.className = "verdict";
+    verdict.innerHTML =
+      `Exact enumeration checked <strong>${groupDigits(report.subsets)}</strong> portfolios in ` +
+      `${ms(report.exact.millis)}${msUnit(report.exact.millis)} and proved the optimum. ` +
+      (winners.length
+        ? `${winners.join(" and ")} found it too, about ${speedup.toFixed(0)}× faster. `
+        : `No heuristic matched it. `) +
+      `At this size exact is affordable, so it is simply the right answer — the heuristics only ` +
+      `start to matter once that first number stops being reachable.`;
+  }
+  $("results-panel").hidden = false;
+}
+
+async function run() {
+  const { n, k, cap } = currentSpace();
+  const btn = $("run");
+  btn.disabled = true;
+  $("status").className = "status";
+  $("status").textContent = cap && BigInt(await ask("subsets", { n, k })) <= BigInt(cap)
+    ? "Enumerating every portfolio, then racing the heuristics…"
+    : "Running heuristics…";
+  try {
+    const { mu, sigma, tickers } = slice(n);
+    const report = await ask("solve", {
+      mu, sigma, k,
+      riskAversion: INSTANCE.risk_aversion ?? 0.5,
+      seed: 42,
+      steps: Number($("steps").value),
+      maxSubsets: cap,
+    });
+    render(report, tickers);
+    $("status").textContent = `Done in ${ms(report.wallMillis)}${msUnit(report.wallMillis)} — all of it in this tab.`;
+  } catch (err) {
+    $("status").className = "status err";
+    $("status").textContent = `Solve failed: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+(async function boot() {
+  try {
+    INSTANCE = await fetch("./instance.json").then((r) => {
+      if (!r.ok) throw new Error(`instance.json: ${r.status}`);
+      return r.json();
+    });
+    $("inst-date").textContent = `${INSTANCE.tickers.length} assets as of ${INSTANCE.date}`;
+    $("k").max = Math.min(14, INSTANCE.tickers.length);
+    for (const id of ["n", "k", "steps"]) $(id).addEventListener("input", refreshSpace);
+    $("cap").addEventListener("change", refreshSpace);
+    $("run").addEventListener("click", run);
+    await refreshSpace();
+    $("status").textContent = "Solver loaded. Nothing leaves your browser.";
+    // ?autorun=1 solves immediately — handy for screenshots and for linking
+    // straight to a worked example.
+    if (new URLSearchParams(location.search).has("autorun")) run();
+  } catch (err) {
+    $("status").className = "status err";
+    $("status").textContent = `Could not start: ${err.message}`;
+  }
+})();
+</script>
+</body>
+</html>

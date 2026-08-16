@@ -1,0 +1,24 @@
+[package]
+name = "separatrix-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Browser bindings for the separatrix solvers: run simulated bifurcation and its classical baselines against exact ground truth in a tab."
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# default-features = false drops rayon: wasm has no threads here, and the
+# solvers are deterministic single-threaded anyway.
+separatrix = { path = "..", default-features = false }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
