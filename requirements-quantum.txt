@@ -1,0 +1,22 @@
+# Dependencies for scripts/heron_qaoa.py ONLY — the single genuinely quantum
+# step in this repo (QAOA on IBM Quantum hardware).
+#
+# Deliberately NOT merged into requirements.txt: qiskit pulls ~250 MB of
+# compiled wheels and nothing in the agent, the workbench, the dashboard, or
+# the test suite needs it. The main install stays light.
+#
+#   python -m pip install -r requirements-quantum.txt
+#   python scripts/heron_qaoa.py            # simulation only, no credentials
+#
+# Verified 2026-08-16 against qiskit 2.5.2 / qiskit-ibm-runtime 0.49.0 on
+# CPython 3.12 (Windows). numpy is already in requirements.txt; repeated here
+# so this file installs standalone.
+
+qiskit>=2.0,<3
+qiskit-ibm-runtime>=0.40
+numpy>=1.26.0
+
+# Not required. The script's simulator is qiskit's exact statevector
+# (qiskit.quantum_info.Statevector), which needs no Aer build; install Aer only
+# if you want to add a noise-model study on top of the honest hardware run.
+# qiskit-aer>=0.15

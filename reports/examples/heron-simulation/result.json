@@ -1,0 +1,475 @@
+{
+  "run_id": "20260816-133556",
+  "generated_at": "2026-08-16T13:37:19+00:00",
+  "command": "python scripts/heron_qaoa.py --fake-backend FakeKingston",
+  "versions": {
+    "python": "3.12.10",
+    "qiskit": "2.5.2",
+    "qiskit_ibm_runtime": "0.49.0"
+  },
+  "honesty": {
+    "parameters_optimized_on": "noiseless local statevector simulation",
+    "hardware_circuits_submitted": 0,
+    "claim": "no quantum advantage, no speedup; exact enumeration is instant and unbeatable at this size",
+    "scoring": "canonical integer objective from separatrix-cli's quantized QUBO, identical to the workbench and the Solana verifier"
+  },
+  "instance": {
+    "n": 10,
+    "k": 3,
+    "risk_aversion": 0.5,
+    "assets": [
+      "ADA",
+      "ALGO",
+      "APT",
+      "ARB",
+      "ATOM",
+      "AVAX",
+      "BCH",
+      "BNB",
+      "BONK",
+      "BTC"
+    ],
+    "source": "repo:data/leash.db",
+    "as_of": "2026-07-31",
+    "detail": {
+      "db": "C:\\Users\\Marti\\workspace\\QubitAlpha\\data\\leash.db",
+      "price_source": "binance",
+      "mu_window_days": 90,
+      "sigma_window_days": 180,
+      "shrinkage_delta": 0.3,
+      "eligible_count": 39,
+      "selection_rule": "first n eligible tickers in alphabetical order"
+    },
+    "fallback_reason": null,
+    "mu": [
+      -0.004407856559385832,
+      -0.00400101283633607,
+      -0.006544277637713638,
+      -0.004981993561170601,
+      -0.004746626061891932,
+      -0.004032434559331203,
+      -0.00836153943594491,
+      -0.0005721682723409595,
+      -0.008970723889464804,
+      -0.0024902510323418386
+    ],
+    "sigma": [
+      [
+        0.001426885291446527,
+        0.0006466974649561774,
+        0.000844724084881496,
+        0.0007318841397904969,
+        0.00048702696624718935,
+        0.0007539552817073646,
+        0.0006093899371499899,
+        0.0004974175354114986,
+        0.0009272195732594502,
+        0.00052542589797884
+      ],
+      [
+        0.0006466974649561774,
+        0.0014561594318833696,
+        0.000650817110456454,
+        0.0005359141838072589,
+        0.0003307608721207663,
+        0.0005708699120710245,
+        0.00042440070973111455,
+        0.0003597052327087241,
+        0.0006707225178599174,
+        0.0004033086742378712
+      ],
+      [
+        0.000844724084881496,
+        0.000650817110456454,
+        0.0016868221756594836,
+        0.0008295407054371266,
+        0.00043582745593002275,
+        0.0007942378781718677,
+        0.0005585594395443946,
+        0.0004871190695123328,
+        0.000948672554740698,
+        0.0005118539826304304
+      ],
+      [
+        0.0007318841397904969,
+        0.0005359141838072589,
+        0.0008295407054371266,
+        0.0014660511226584235,
+        0.0004565751380220845,
+        0.0006715442603392013,
+        0.0005420520434991498,
+        0.00042405730633224986,
+        0.0008337232843355115,
+        0.00046463107106029997
+      ],
+      [
+        0.00048702696624718935,
+        0.0003307608721207663,
+        0.00043582745593002275,
+        0.0004565751380220845,
+        0.0009037150713131387,
+        0.0003930552107814996,
+        0.0004145949496644858,
+        0.00027166031666104934,
+        0.0005252577319617782,
+        0.00031456161731639157
+      ],
+      [
+        0.0007539552817073646,
+        0.0005708699120710245,
+        0.0007942378781718677,
+        0.0006715442603392013,
+        0.0003930552107814996,
+        0.0011624637722913178,
+        0.0005559444089640928,
+        0.00044457434486130633,
+        0.0008225919407991812,
+        0.00047205007433785
+      ],
+      [
+        0.0006093899371499899,
+        0.00042440070973111455,
+        0.0005585594395443946,
+        0.0005420520434991498,
+        0.0004145949496644858,
+        0.0005559444089640928,
+        0.0013391583169842778,
+        0.0004008329225803923,
+        0.0006633405571477124,
+        0.00046391241899229976
+      ],
+      [
+        0.0004974175354114986,
+        0.0003597052327087241,
+        0.0004871190695123328,
+        0.00042405730633224986,
+        0.00027166031666104934,
+        0.00044457434486130633,
+        0.0004008329225803923,
+        0.0005923713149811019,
+        0.0005133211042540666,
+        0.0003588683949100747
+      ],
+      [
+        0.0009272195732594502,
+        0.0006707225178599174,
+        0.000948672554740698,
+        0.0008337232843355115,
+        0.0005252577319617782,
+        0.0008225919407991812,
+        0.0006633405571477124,
+        0.0005133211042540666,
+        0.001994998519329296,
+        0.0005360945951104247
+      ],
+      [
+        0.00052542589797884,
+        0.0004033086742378712,
+        0.0005118539826304304,
+        0.00046463107106029997,
+        0.00031456161731639157,
+        0.00047205007433785,
+        0.00046391241899229976,
+        0.0003588683949100747,
+        0.0005360945951104247,
+        0.0006274733563631418
+      ]
+    ]
+  },
+  "qubo": {
+    "q_hash": "412a2c0241bc3c561ce01e3570b9c1acd33bb3e12c8dfda6bdc3047396315c6e",
+    "scale": 68566108752.06494,
+    "offset_int": "3885363289",
+    "term_count": 55
+  },
+  "exact": {
+    "best_objective": "-3767163568",
+    "worst_objective": "-3541184768",
+    "spread": "225978800",
+    "best_bits": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      1
+    ],
+    "best_assets": [
+      "ALGO",
+      "BNB",
+      "BTC"
+    ],
+    "feasible_portfolios": 120,
+    "runtime_ms": 0.011,
+    "python_rescoring_agrees": true
+  },
+  "simulation": {
+    "mixer": "xy",
+    "mixer_description": "XY ring mixer on a Dicke state |D^n_k> \u2014 Hamming weight, i.e. the cardinality constraint, is preserved exactly by the circuit's symmetry, so no penalty term is needed",
+    "p": 2,
+    "restarts": 12,
+    "cvar_alpha": 1.0,
+    "parameters": {
+      "gamma": [
+        -4.741210262794087,
+        9.547728589096181
+      ],
+      "beta": [
+        0.35929948214464535,
+        -0.2263808661226656
+      ]
+    },
+    "training_objective": 0.7251096229928271,
+    "function_evaluations": 4969,
+    "wall_seconds": 80.45041709998623,
+    "dicke_fidelity": 0.9999999999999996,
+    "leakage": 4.336283803499885e-33,
+    "hamiltonian_max_abs_error_vs_canonical": 2.382426894653733e-11,
+    "shots": 4096,
+    "counts": {
+      "1000101000": 112,
+      "0000011010": 139,
+      "0000011001": 14,
+      "1010001000": 189,
+      "1000100001": 83,
+      "0010010010": 156,
+      "1010000010": 272,
+      "0010100001": 17,
+      "1000000101": 11,
+      "1000001010": 128,
+      "1010100000": 323,
+      "1010010000": 189,
+      "0010100010": 202,
+      "1000000110": 77,
+      "0000001110": 29,
+      "1000010010": 164,
+      "1000010001": 66,
+      "1110000000": 82,
+      "0000110100": 4,
+      "0000111000": 59,
+      "0010101000": 133,
+      "1000011000": 137,
+      "1000000011": 67,
+      "0000110001": 8,
+      "0000101010": 101,
+      "1000100010": 183,
+      "0010000110": 55,
+      "0010010001": 9,
+      "0000010110": 50,
+      "0110000010": 10,
+      "1000110000": 99,
+      "0110100000": 4,
+      "0110010000": 6,
+      "0010110000": 122,
+      "1010000001": 110,
+      "0010000011": 5,
+      "0000110010": 97,
+      "0010001010": 114,
+      "0100101000": 2,
+      "0010011000": 101,
+      "1010000100": 11,
+      "0100100001": 3,
+      "0000010011": 9,
+      "0001101000": 13,
+      "1100000010": 4,
+      "1000001001": 46,
+      "1101000000": 3,
+      "0010000101": 5,
+      "0000100110": 45,
+      "0011100000": 34,
+      "1001100000": 16,
+      "1001010000": 3,
+      "1001000010": 9,
+      "1001000001": 1,
+      "0000011100": 6,
+      "1000001100": 8,
+      "0100000011": 4,
+      "0010001100": 9,
+      "0010010100": 8,
+      "0100010100": 1,
+      "0000101100": 1,
+      "1001001000": 6,
+      "0100011000": 2,
+      "0001100010": 11,
+      "0101100000": 4,
+      "1011000000": 4,
+      "0110001000": 7,
+      "0000101001": 7,
+      "0011010000": 5,
+      "0001110000": 10,
+      "1100000001": 2,
+      "0010100100": 3,
+      "0001011000": 4,
+      "0010001001": 9,
+      "1000100100": 9,
+      "1100100000": 4,
+      "0100110000": 4,
+      "1100001000": 3,
+      "1000010100": 7,
+      "0011000010": 5,
+      "0011001000": 1,
+      "0100001010": 1,
+      "1100010000": 5,
+      "1100000100": 1,
+      "0100100100": 1,
+      "0100010001": 1,
+      "0000100011": 3,
+      "0101000010": 2,
+      "0001001010": 2,
+      "0100010010": 1,
+      "0000001011": 1,
+      "0110000001": 1,
+      "0001100100": 1,
+      "0001010010": 1
+    },
+    "analysis": {
+      "shots": 4096,
+      "feasible_shots": 4096,
+      "feasible_fraction": 1.0,
+      "distinct_feasible": 94,
+      "best_objective": "-3767163568",
+      "best_bits": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1
+      ],
+      "best_assets": [
+        "ALGO",
+        "BNB",
+        "BTC"
+      ],
+      "gap_int": "0",
+      "gap_norm": 0.0,
+      "rank": 1,
+      "found_optimum": true,
+      "optimum_shots": 272,
+      "optimum_probability": 0.06640625,
+      "mean_gap_norm_per_shot": 0.20279792754057227,
+      "median_gap_norm_per_shot": 0.21607378214239567
+    }
+  },
+  "baselines": {
+    "random": {
+      "feasible_portfolios": 120,
+      "draws": 4096,
+      "single_draw_mean_gap_norm": 0.4627067480076295,
+      "single_draw_median_gap_norm": 0.45798321568217903,
+      "single_draw_optimum_probability": 0.008333333333333333,
+      "best_of_m_expected_gap_norm": 2.1100968683926323e-15,
+      "best_of_m_probability_of_optimum": 0.9999999999999987,
+      "best_of_m_saturated": true,
+      "empirical_best_of_m_gap_norm": 0.0,
+      "empirical_seed": 44
+    },
+    "separatrix": [
+      {
+        "solver": "bsb",
+        "objective_int": "-3767163568",
+        "gap_int": 0,
+        "gap_norm": 0.0,
+        "runtime_ms": 0.734,
+        "assets": [
+          "ALGO",
+          "BNB",
+          "BTC"
+        ]
+      },
+      {
+        "solver": "dsb",
+        "objective_int": "-3758778311",
+        "gap_int": 8385257,
+        "gap_norm": 0.03710638785585196,
+        "runtime_ms": 0.698,
+        "assets": [
+          "ADA",
+          "BNB",
+          "BTC"
+        ]
+      },
+      {
+        "solver": "sa",
+        "objective_int": "-3767163568",
+        "gap_int": 0,
+        "gap_norm": 0.0,
+        "runtime_ms": 0.558,
+        "assets": [
+          "ALGO",
+          "BNB",
+          "BTC"
+        ]
+      },
+      {
+        "solver": "pt",
+        "objective_int": "-3767163568",
+        "gap_int": 0,
+        "gap_norm": 0.0,
+        "runtime_ms": 4.483,
+        "assets": [
+          "ALGO",
+          "BNB",
+          "BTC"
+        ]
+      }
+    ]
+  },
+  "hardware": {
+    "executed": false,
+    "status": "not_run",
+    "reason": "--dry-run is on (the default). Nothing was submitted. Pass --no-dry-run together with --backend to execute.",
+    "backend": null,
+    "job_id": null,
+    "shots": 4096,
+    "ideal_circuit": {
+      "num_qubits": 10,
+      "depth": 110,
+      "size": 225,
+      "two_qubit_gates": 187,
+      "ops": {
+        "rzz": 90,
+        "cx": 48,
+        "rz": 20,
+        "rxx": 20,
+        "ryy": 20,
+        "ccry": 15,
+        "cry": 9,
+        "barrier": 5,
+        "x": 3
+      }
+    },
+    "transpiled": null,
+    "analysis": null,
+    "compile_preview": {
+      "backend": "FakeKingston",
+      "backend_qubits": 156,
+      "executed": false,
+      "note": "coupling-map/basis compilation only; nothing was run and no measurement exists",
+      "num_qubits": 156,
+      "depth": 1368,
+      "size": 3072,
+      "two_qubit_gates": 679,
+      "ops": {
+        "sx": 1365,
+        "rz": 963,
+        "cz": 679,
+        "x": 55,
+        "measure": 10,
+        "barrier": 6
+      }
+    }
+  },
+  "verdict": {
+    "simulation": "Simulated QAOA (noiseless) **tied** the random baseline on the headline metric (both `gap_norm` 0.000000). That comparison is **saturated and therefore uninformative**: with only 120 feasible portfolios, 4096 uniform draws find the optimum with probability 1.000. Random guessing wins this instance too. Read the per-shot line instead. Per shot the distribution is genuinely biased towards good portfolios: mean `gap_norm` 0.202798 vs 0.462707 for a uniform draw (2.28x), and P(optimum) 0.0664 vs 0.0083 (8.0x). That bias is the only thing the circuit can be credited with \u2014 it is not a speedup, and exact enumeration still solved this instance in microseconds.",
+    "hardware": "Hardware: **not run**, so there is no hardware claim to make. This section will state plainly whether the QPU beat random guessing once a job has actually executed."
+  }
+}
