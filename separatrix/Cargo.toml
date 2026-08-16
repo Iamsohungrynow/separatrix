@@ -13,7 +13,7 @@ categories = ["algorithms", "science", "mathematics"]
 # dependencies must never enter that lockfile. The cli member keeps serde out
 # of the published library.
 [workspace]
-members = ["cli"]
+members = ["cli", "wasm"]
 
 [features]
 default = ["parallel"]
