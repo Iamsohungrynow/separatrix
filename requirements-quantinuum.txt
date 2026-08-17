@@ -1,0 +1,45 @@
+# Quantinuum stack for the SG Grand Challenge 2026 (Quantum Primitives track).
+#
+# Deliberately SEPARATE from requirements.txt and requirements-quantum.txt.
+# Install into a dedicated venv, never the main one:
+#
+#     python -m venv .venv-quantinuum
+#     .venv-quantinuum/Scripts/python.exe -m pip install -r requirements-quantinuum.txt
+#
+# Verified working on Windows 11 / CPython 3.12.10 on 2026-08-17.
+# Every pin below was actually installed and exercised; nothing here is aspirational.
+# NOTE: guppylang requires Python >= 3.12.
+
+# --- TKET: circuit construction + compilation to the Helios native gate set ---
+pytket==2.18.1
+# Qiskit <-> pytket interop. This is what makes the port of scripts/heron_qaoa.py
+# nearly free: qiskit_to_tk(build_dicke_circuit(n, k)) round-trips at fidelity 1.0.
+pytket-qiskit==0.77.0
+# Quantinuum backends. QuantinuumAPIOffline compiles for H1-1/H2-1/H2-2 with NO
+# credentials. Helios is NOT in the offline device list in this version.
+pytket-quantinuum==0.59.2
+
+# --- Guppy: the Python-embedded quantum DSL targeting Helios ---
+guppylang==1.0.1
+
+# --- Selene: Quantinuum's Helios emulator. Runs fully locally, no account. ---
+selene-sim==0.3.0
+# Required to feed HUGR (i.e. Guppy) programs into Selene.
+selene-hugr-qis-compiler==0.4.2
+
+# --- Nexus client. Import works offline; any API call needs credentials. ---
+qnexus==0.48.1
+
+# NOT required, deliberately. `qir-qis` is Selene's optional QIR front end, and
+# the pytket -> QIR -> Selene route was tried and does NOT work with these
+# versions: pytket.qir.pytket_to_qir emits `__quantum__qis__read_result__body`,
+# which qir-qis 0.1.10 rejects as an unsupported QIS function, for every profile
+# pytket-qir 2.0 offers. quantum/selene_backend.py therefore goes
+# pytket -> Guppy -> HUGR -> Selene instead. Do not add qir-qis expecting it to
+# save that step; it does not.
+
+# Pulled in transitively but pinned because results depend on them:
+qiskit==2.5.2
+qiskit-ibm-runtime==0.49.0   # FakeKingston heavy-hex, the routing-tax control arm
+numpy==2.5.2
+scipy==1.18.0

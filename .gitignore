@@ -2,6 +2,8 @@
 .env
 venv/
 .venv/
+# The Quantinuum stack lives in its own 1.4 GB venv; `git add -A` must not eat it.
+.venv-quantinuum/
 __pycache__/
 *.pyc
 
