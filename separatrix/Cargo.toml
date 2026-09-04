@@ -27,7 +27,7 @@ parallel = ["dep:rayon"]
 [dependencies]
 num-traits = "0.2"
 rand_core = "0.6"
-rand_xoshiro = "0.6"
+rand_xoshiro = "0.8"
 rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
