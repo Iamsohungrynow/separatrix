@@ -1,7 +1,18 @@
 {
-  "name": "leash",
-  "version": "0.1.0",
+  "name": "separatrix-monorepo",
+  "version": "0.2.0",
   "private": true,
+  "description": "Separatrix: quantum-inspired portfolio optimisation with exact ground truth, on-chain commitments on Solana, and quantum-primitive characterisation. This package holds the TypeScript bridges, Anchor tests, and IDL tooling.",
+  "author": "Martina (https://github.com/Iamsohungrynow)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Iamsohungrynow/separatrix.git"
+  },
+  "homepage": "https://separatrix.vercel.app",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build:anchor": "anchor build",
     "gen:idl": "node scripts/gen-idl.js idl/leash.json",

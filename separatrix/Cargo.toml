@@ -1,10 +1,14 @@
 [package]
 name = "separatrix"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
-description = "Quantum-inspired Ising/QUBO solvers: simulated bifurcation (bSB/dSB) with honest classical baselines (simulated annealing, parallel tempering, exact)."
-repository = "https://github.com/Iamsohungrynow/leash"
+authors = ["Martina <261225237+Iamsohungrynow@users.noreply.github.com>"]
+description = "Quantum-inspired Ising/QUBO solvers: simulated bifurcation (bSB/dSB) with honest classical baselines (simulated annealing, parallel tempering, exact), plus a cardinality-constrained portfolio module with proven ground truth."
+repository = "https://github.com/Iamsohungrynow/separatrix"
+homepage = "https://separatrix.vercel.app"
+documentation = "https://docs.rs/separatrix"
+readme = "README.md"
 keywords = ["ising", "qubo", "annealing", "optimization", "solver"]
 categories = ["algorithms", "science", "mathematics"]
 
@@ -34,8 +38,10 @@ criterion = { version = "0.5", default-features = false, features = ["cargo_benc
 name = "solvers"
 harness = false
 
+# Fat LTO + one codegen unit: also what the wasm demo bundle wants, and cargo
+# only honours profiles declared at the workspace root.
 [profile.release]
-lto = "thin"
+lto = "fat"
 codegen-units = 1
 
 [profile.bench]
