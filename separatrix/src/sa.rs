@@ -154,7 +154,13 @@ mod tests {
     fn solves_two_spin_ferromagnet() {
         let mut m = IsingModel::<f64>::new(2);
         m.set_coupling(0, 1, 1.0);
-        let r = solve(&m, &SaConfig { seed: 5, ..SaConfig::default() });
+        let r = solve(
+            &m,
+            &SaConfig {
+                seed: 5,
+                ..SaConfig::default()
+            },
+        );
         assert_eq!(r.energy, -1.0);
     }
 

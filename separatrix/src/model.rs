@@ -41,7 +41,10 @@ impl<T: Float> IsingModel<T> {
     /// Set coupling `J_ij = J_ji = value`. Panics if `i == j` (the diagonal is
     /// identically zero) or out of range.
     pub fn set_coupling(&mut self, i: usize, j: usize, value: T) {
-        assert!(i != j, "Ising coupling requires i != j (diagonal is fixed at zero)");
+        assert!(
+            i != j,
+            "Ising coupling requires i != j (diagonal is fixed at zero)"
+        );
         assert!(i < self.n && j < self.n, "coupling index out of range");
         self.j[i * self.n + j] = value;
         self.j[j * self.n + i] = value;

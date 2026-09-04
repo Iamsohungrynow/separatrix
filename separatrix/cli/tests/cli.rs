@@ -48,8 +48,7 @@ fn small_request(seed: u64, solvers: &str) -> String {
 
 #[test]
 fn full_pipeline_all_solvers() {
-    let (stdout, stderr, ok) =
-        run_cli(&small_request(7, r#""bsb","dsb","sa","pt","exact""#));
+    let (stdout, stderr, ok) = run_cli(&small_request(7, r#""bsb","dsb","sa","pt","exact""#));
     assert!(ok, "cli failed: {stderr}");
     let v: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
 
@@ -60,7 +59,11 @@ fn full_pipeline_all_solvers() {
     let exact = &v["exact"];
     let exact_obj: i128 = exact["objective_int"].as_str().unwrap().parse().unwrap();
     let offset: i128 = v["objective_offset_int"].as_str().unwrap().parse().unwrap();
-    let exact_portfolio: i128 = exact["portfolio_objective_int"].as_str().unwrap().parse().unwrap();
+    let exact_portfolio: i128 = exact["portfolio_objective_int"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
     assert_eq!(exact_portfolio, exact_obj + offset);
     // The penalty constant dominates the raw QUBO value; the portfolio
     // objective must NOT inherit that magnitude.
@@ -69,7 +72,12 @@ fn full_pipeline_all_solvers() {
         "offset failed to remove the penalty constant: raw {exact_obj}, portfolio {exact_portfolio}"
     );
     assert_eq!(
-        exact["bits"].as_array().unwrap().iter().filter(|b| b == &&serde_json::json!(1)).count(),
+        exact["bits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|b| b == &&serde_json::json!(1))
+            .count(),
         2
     );
 
@@ -89,7 +97,10 @@ fn full_pipeline_all_solvers() {
             .iter()
             .map(|w| w.as_f64().unwrap())
             .sum();
-        assert!((weights - 1.0).abs() < 1e-12, "{solver}: weights sum {weights}");
+        assert!(
+            (weights - 1.0).abs() < 1e-12,
+            "{solver}: weights sum {weights}"
+        );
         let obj: i128 = r["objective_int"].as_str().unwrap().parse().unwrap();
         let gap: i128 = r["gap_int"].as_str().unwrap().parse().unwrap();
         assert!(gap >= 0, "{solver}: negative gap {gap}");
@@ -103,7 +114,11 @@ fn full_pipeline_all_solvers() {
             (0.0..=1.0).contains(&gap_norm),
             "{solver}: gap_norm {gap_norm} outside [0,1]"
         );
-        let range: i128 = exact["objective_range_int"].as_str().unwrap().parse().unwrap();
+        let range: i128 = exact["objective_range_int"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
         assert!(range > 0, "objective range must be positive");
         assert!((gap_norm - gap as f64 / range as f64).abs() < 1e-12);
         // gap_rel is the gap over the PORTFOLIO objective of the optimum.

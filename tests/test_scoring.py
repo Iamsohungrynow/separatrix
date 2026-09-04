@@ -9,7 +9,6 @@ import httpx
 from agent.models import Signal
 from agent.scoring.llm_scorer import (
     PROMPT_TEMPLATE,
-    MAX_ITEMS_PER_BATCH,
     MAX_BATCHES_PER_CYCLE,
     score_items,
     _parse_scores,

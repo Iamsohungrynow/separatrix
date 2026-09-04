@@ -32,12 +32,24 @@ struct Budget {
     pt_replicas: usize,
 }
 
-fn d_sb_steps() -> usize { 2000 }
-fn d_sb_replicas() -> usize { 8 }
-fn d_sa_sweeps() -> usize { 2000 }
-fn d_sa_restarts() -> usize { 8 }
-fn d_pt_sweeps() -> usize { 2000 }
-fn d_pt_replicas() -> usize { 16 }
+fn d_sb_steps() -> usize {
+    2000
+}
+fn d_sb_replicas() -> usize {
+    8
+}
+fn d_sa_sweeps() -> usize {
+    2000
+}
+fn d_sa_restarts() -> usize {
+    8
+}
+fn d_pt_sweeps() -> usize {
+    2000
+}
+fn d_pt_replicas() -> usize {
+    16
+}
 
 impl Default for Budget {
     fn default() -> Self {

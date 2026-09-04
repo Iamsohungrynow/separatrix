@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
 from agent.ingestion.arxiv import fetch_arxiv
-from agent.ingestion.coingecko import fetch_fallback_prices, COINGECKO_IDS
+from agent.ingestion.coingecko import fetch_fallback_prices
 from agent.ingestion.jupiter_price import fetch_prices, TOKEN_MINTS
 from agent.ingestion.news_rss import fetch_news_rss
 

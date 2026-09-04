@@ -81,7 +81,9 @@ pub fn build_selection_qubo(spec: &PortfolioSpec<'_>) -> Result<SelectionQubo, E
         )));
     }
     if !spec.risk_aversion.is_finite() || spec.risk_aversion < 0.0 {
-        return Err(Error::InvalidInput("risk_aversion must be finite and >= 0".into()));
+        return Err(Error::InvalidInput(
+            "risk_aversion must be finite and >= 0".into(),
+        ));
     }
     for (idx, v) in spec.mu.iter().chain(spec.sigma.iter()).enumerate() {
         if !v.is_finite() {
