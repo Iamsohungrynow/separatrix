@@ -1,5 +1,5 @@
 # Core runtime
-fastapi>=0.110.0
+fastapi>=0.141.1
 uvicorn>=0.29.0
 httpx>=0.27.0
 aiohttp>=3.9.0
