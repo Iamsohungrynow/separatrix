@@ -620,7 +620,7 @@ dependencies = [
  "criterion",
  "num-traits",
  "proptest",
- "rand_core 0.6.4",
+ "rand_core 0.9.5",
  "rand_xoshiro",
  "rayon",
 ]
