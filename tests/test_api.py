@@ -34,7 +34,6 @@ class ApiTestCase(unittest.TestCase):
                 "\n".join(
                     [
                         f"SQLITE_PATH={case_dir / 'state.db'}",
-                        "ENABLE_X402=true",
                     ]
                 ),
                 encoding="utf-8",
@@ -95,13 +94,11 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(pnl.status_code, 200)
         self.assertEqual(pnl.json()["cash_usdc"], 1000.0)
         self.assertEqual(latest.status_code, 200)
-        self.assertTrue(latest.json()["x402_enabled"])
         self.assertEqual(latest.json()["signal"]["asset"], "SOL")
         self.assertEqual(history.status_code, 200)
         self.assertEqual(len(history.json()["signals"]), 1)
         self.assertEqual(trades.status_code, 200)
         trades_payload = trades.json()
-        self.assertTrue(trades_payload["x402_enabled"])
         self.assertEqual(len(trades_payload["trades"]), 1)
         self.assertEqual(trades_payload["trades"][0]["asset"], "SOL")
         self.assertEqual(trades_payload["trades"][0]["tx_signature"], "LOCAL-000002")
@@ -174,12 +171,10 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(pnl.json()["positions"], [])
         self.assertEqual(latest.status_code, 200)
         self.assertIsNone(latest.json()["signal"])
-        self.assertFalse(latest.json()["x402_enabled"])
         self.assertEqual(history.status_code, 200)
         self.assertEqual(history.json()["signals"], [])
         self.assertEqual(trades.status_code, 200)
         self.assertEqual(trades.json()["trades"], [])
-        self.assertFalse(trades.json()["x402_enabled"])
 
         shutil.rmtree(case_dir, ignore_errors=True)
 

@@ -58,13 +58,13 @@ class SettingsTestCase(unittest.TestCase):
         case_dir.mkdir(parents=True, exist_ok=True)
 
         env_path = case_dir / ".env"
-        env_path.write_text("API_PORT=7000\nENABLE_X402=false\n", encoding="utf-8")
+        env_path.write_text("API_PORT=7000\nENABLE_DEVNET_LEASH=false\n", encoding="utf-8")
 
-        with patch.dict("os.environ", {"API_PORT": "9100", "ENABLE_X402": "true"}, clear=True):
+        with patch.dict("os.environ", {"API_PORT": "9100", "ENABLE_DEVNET_LEASH": "true"}, clear=True):
             settings = Settings.from_env(env_path)
 
         self.assertEqual(settings.api_port, 9100)
-        self.assertTrue(settings.enable_x402)
+        self.assertTrue(settings.enable_devnet_leash)
 
         shutil.rmtree(case_dir, ignore_errors=True)
 
@@ -82,7 +82,6 @@ class SettingsTestCase(unittest.TestCase):
             "os.environ",
             {
                 "ENABLE_DEVNET_LEASH": "off",
-                "ENABLE_X402": "no",
                 "TRACKED_ASSETS": "",
                 "POLL_INTERVAL_SECONDS": "15",
             },
@@ -91,7 +90,6 @@ class SettingsTestCase(unittest.TestCase):
             settings = Settings.from_env(".env.does-not-exist")
 
         self.assertFalse(settings.enable_devnet_leash)
-        self.assertFalse(settings.enable_x402)
         self.assertEqual(settings.tracked_assets, ["SOL", "RNDR", "IO", "PYTH"])
         self.assertEqual(settings.poll_interval_seconds, 15)
 

@@ -79,9 +79,6 @@ class Settings:
     api_host: str
     api_port: int
     api_rate_limit: int
-    enable_x402: bool
-    x402_facilitator_url: str
-    devnet_usdc_mint: str
 
     @classmethod
     def from_env(cls, env_path: str | Path = ".env") -> "Settings":
@@ -117,9 +114,6 @@ class Settings:
             api_host=os.getenv("API_HOST", "0.0.0.0"),
             api_port=_get_int("API_PORT", 8000),
             api_rate_limit=_get_int("API_RATE_LIMIT", 100),
-            enable_x402=_get_bool("ENABLE_X402", False),
-            x402_facilitator_url=os.getenv("X402_FACILITATOR_URL", "https://x402.org/facilitator"),
-            devnet_usdc_mint=os.getenv("DEVNET_USDC_MINT", ""),
         )
 
     @property
