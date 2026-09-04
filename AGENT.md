@@ -1,117 +1,169 @@
-# Leash Agent Guide
+# Separatrix Agent Guide
 
 This file is the operating guide for humans and coding agents working in this repository.
+Human contributors should also read [`CONTRIBUTING.md`](CONTRIBUTING.md); this file is the
+denser, invariant-first version.
 
 ## Mission
 
-Leash is an on-chain spending firewall for AI agents on Solana devnet:
+Separatrix asks how well quantum-inspired and quantum methods solve a cardinality-constrained
+selection problem, and insists on being able to prove the answer. Three pillars share one
+repository and one history:
 
-1. an owner funds a program-owned vault and sets limits (per-tx cap, daily budget, allowlist, kill switch)
-2. an agent can only move value through the program's `spend` instruction, which enforces every rule fail-closed
-3. a demo agent (research-driven paper trader) shows the guardrails working live
+1. **Solver** — `separatrix/`, a pure-Rust simulated-bifurcation crate with its classical
+   baselines (SA, PT, exact enumeration) and a canonical `i128` objective.
+2. **Verification** — two Anchor programs on Solana devnet: `separatrix` (commit an
+   allocation, re-score it on-chain) and `leash` (a fail-closed spending firewall for agents).
+3. **Quantum** — `quantum/` (Dicke-state + XY-mixer primitives characterised on Quantinuum's
+   Selene emulator) and `scripts/heron_qaoa.py` (QAOA for IBM hardware, simulated so far).
 
-The repo is intentionally narrow. Keep changes honest, incremental, and demoable.
+The repo is intentionally narrow in what it *claims*. Keep changes honest, incremental,
+and demoable.
 
 ## Read This First
 
-Start in this order:
-
-1. [`README.md`](README.md) for project scope, live devnet addresses, and quick start
-2. [`docs/README.md`](docs/README.md) for documentation map
-3. [`docs/design.md`](docs/design.md) and [`docs/security.md`](docs/security.md) before touching program or policy logic
+1. [`README.md`](README.md) — scope, live addresses, results, quick starts
+2. [`docs/README.md`](docs/README.md) — the documentation map and which doc governs what
+3. Before touching a pillar, its binding contract:
+   [`docs/workbench.md`](docs/workbench.md) (formulation + JSON protocol),
+   [`docs/onchain.md`](docs/onchain.md) (preimages, layouts, measured CU),
+   [`docs/design.md`](docs/design.md) + [`docs/security.md`](docs/security.md) (leash),
+   [`docs/primitives.md`](docs/primitives.md) + [`docs/quantum.md`](docs/quantum.md) (quantum)
 
 ## Repo Map
 
-- [`programs/leash/`](programs/leash/) contains the Anchor program (single `lib.rs`)
-- [`idl/leash.json`](idl/leash.json) is the committed IDL; regenerate with `npm run gen:idl`
-- [`scripts/devnet-leash.ts`](scripts/devnet-leash.ts) is the owner/agent CLI bridge
-- [`scripts/gen-idl.js`](scripts/gen-idl.js) deterministically generates the IDL from the program interface
-- [`agent/`](agent/) contains the Python demo agent (ingestion, scoring, executor, leash client, API)
-- [`agent/trading/leash_client.py`](agent/trading/leash_client.py) owns the local simulator and the devnet bridge client
-- [`tests/`](tests/) contains Python tests and the Anchor TypeScript test suite
-- [`dashboard/`](dashboard/) is the static live monitor (`index.html`) and the owner console (`owner.html`)
-- [`dashboard/leash-ix.js`](dashboard/leash-ix.js) is the shared browser/Node instruction encoder + account decoder
-- [`scripts/verify-owner-ix.js`](scripts/verify-owner-ix.js) byte-checks that encoder against Anchor (`npm run verify:owner-ix`)
-- [`docs/`](docs/) holds architecture, security, and roadmap docs
+Solver:
 
-Separatrix (the second project in this repo):
+- [`separatrix/`](separatrix/) — the crate; **its own cargo workspace**, deliberately excluded from the root one
+- [`separatrix/cli/`](separatrix/cli/) — JSON solver bridge the Python workbench shells out to (`--emit-qubo` exports the on-chain coefficient digest)
+- [`separatrix/wasm/`](separatrix/wasm/) — `wasm-bindgen` bindings; [`site/demo/`](site/demo/) is the browser demo, rebuilt by `scripts/build-wasm-demo.sh` (generated `pkg/` is committed)
 
-- [`separatrix/`](separatrix/) is the solver crate — **its own cargo workspace**, deliberately excluded from the root one
-- [`separatrix/cli/`](separatrix/cli/) is the JSON solver bridge the Python workbench shells out to
-- [`programs/separatrix/`](programs/separatrix/) is its Anchor program; [`idl/separatrix.json`](idl/separatrix.json) the committed IDL
-- [`scripts/devnet-separatrix.ts`](scripts/devnet-separatrix.ts) drives studies and allocations (`npm run separatrix:smoke`)
-- [`agent/workbench/`](agent/workbench/) is the walk-forward harness; [`docs/workbench.md`](docs/workbench.md) is its binding contract
-- [`docs/onchain.md`](docs/onchain.md) documents the preimages, account layout, and measured compute units
-- [`tests/test_onchain_vectors.py`](tests/test_onchain_vectors.py) pins both on-chain preimages in a third independent implementation
+Verification:
 
-## Current Truth
+- [`programs/leash/`](programs/leash/), [`programs/separatrix/`](programs/separatrix/) — the Anchor programs (root cargo workspace, SBF toolchain)
+- [`idl/`](idl/) — committed IDLs; generated by [`scripts/gen-idl.js`](scripts/gen-idl.js) and [`scripts/gen-separatrix-idl.js`](scripts/gen-separatrix-idl.js)
+- [`scripts/devnet-leash.ts`](scripts/devnet-leash.ts), [`scripts/devnet-separatrix.ts`](scripts/devnet-separatrix.ts) — owner/agent CLI bridges (`npm run devnet:*`, `npm run separatrix:*`)
+- [`dashboard/leash-ix.js`](dashboard/leash-ix.js) + [`scripts/verify-owner-ix.js`](scripts/verify-owner-ix.js) — browser instruction encoder, byte-checked against Anchor
+- [`agent/workbench/onchain.py`](agent/workbench/onchain.py), [`tests/test_onchain_vectors.py`](tests/test_onchain_vectors.py) — Python commitment client and pinned preimage vectors
+- [`tests/anchor/`](tests/anchor/) — Anchor TypeScript suites (local validator)
 
-This repo now holds **two** projects sharing one history. Keep both descriptions honest.
+Python:
 
-**Leash** — on-chain spending guardrails:
+- [`agent/`](agent/) — demo agent (ingestion, scoring, paper executor, leash client, FastAPI)
+- [`agent/workbench/`](agent/workbench/) — walk-forward harness, baselines, metrics, report writer
+- [`dashboard/`](dashboard/) — live monitor (`index.html`), owner console (`owner.html`), workbench viewer (`workbench.html`)
 
-- `leash` program deployed on devnet at `EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV`
-- real SOL enforcement verified live: approved spend, per-tx cap rejection, allowlist rejection, halt/resume
-- committed IDL loaded by the bridge (no anchor build needed to use the deployed program)
-- fail-closed Python spend path through the TypeScript bridge
-- demo agent, FastAPI observability endpoints, live dashboard
+Quantum:
 
-**Separatrix** — quantum-inspired portfolio solver, plus a Solana program that verifies committed allocations:
+- [`quantum/dicke_xy.py`](quantum/dicke_xy.py) — gate IR, reference simulator, analytic Dicke vector, verification, pytket layer, three compile arms
+- [`quantum/selene_backend.py`](quantum/selene_backend.py) — pytket → generated Guppy → HUGR → Selene, with the emission self-check
+- [`quantum/characterise.py`](quantum/characterise.py) — the (n, k) sweep and report writer
+- [`scripts/heron_qaoa.py`](scripts/heron_qaoa.py) — QAOA pipeline; `--dry-run` defaults ON
+- [`reports/examples/`](reports/examples/) — committed artifacts (the only part of `reports/` that is tracked)
 
-- `separatrix` crate published on crates.io: simulated bifurcation (bSB/dSB) plus SA, parallel tempering, and exact enumeration as ground truth
-- walk-forward workbench: 39 assets, K=8, 234 weekly rebalances with a proven optimum on 100% of them (see `docs/workbench.md`, `dashboard/workbench.html`). **This study is off-chain** — a published report, no part of it recorded on the separatrix program
-- `separatrix` program deployed on devnet at `CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp`: commit-before-execution plus on-chain re-derivation of an allocation's objective, with measured compute units in `docs/onchain.md`. Limits are `n <= 48` and `k <= MAX_CARDINALITY = 40`; `create_study` requires the authority **and** the agent to sign
-- the studies that exist on-chain are separate and much smaller, created to exercise and measure the program — they are not the walk-forward study
-- verified end to end on devnet against the hardened build: the objective the chain computed equals the solver's, exactly (n=8, k=4, reveal `DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB`)
+## Current Truth (2026-09-04)
 
-Repo-wide: 338 Python tests, 26 Rust tests, TypeScript type-check, and the 19-test Anchor suite for separatrix all green.
+Keep every description below honest; update this section when reality changes.
 
-Not implemented yet:
+**Solver** — `separatrix` crate: bSB/dSB, SA, PT, Gray-code exact, `QuantizedQubo`,
+`portfolio` module. 0.1.0 is on crates.io (solver core only); the tree is at 0.2.0,
+unpublished until the maintainer runs `cargo publish`. Browser demo live at
+separatrix.vercel.app/demo.
 
-- npm-packaged SDK, native `anchorpy` client, SPL-token vaults, x402 flow, hosted dashboard
-- the workbench does not yet publish its live rebalances to the separatrix program automatically
-- no browser WASM demo, no real-quantum-hardware run, no solver bounty
+**Workbench** — 39 assets, K=8, 234 weekly rebalances, exact ground truth on 100% of them
+(`docs/workbench.md`, `dashboard/workbench.html`). bSB median `gap_norm` 0.031, SA 0.079,
+PT 0.110, dSB 0.325; **exact wins outright at this size and every doc says so.** The study
+is **off-chain** — a published report, not a chain record.
 
-Do not write docs or commit messages that imply those pieces already work.
+**Verification** — `separatrix` program on devnet at
+`CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp`: create_study / write_coefficients /
+seal_study / publish_allocation / reveal_allocation; `n <= 48`, `k <= MAX_CARDINALITY = 40`;
+`create_study` requires the authority **and** the agent to sign. Verified live: the chain's
+objective equals the solver's exactly (n=8, k=4, reveal
+`DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB`).
+Measured compute units in `docs/onchain.md`. `leash` program on devnet at
+`EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV`: approved spend, per-tx cap rejection,
+allowlist rejection, halt/resume all exercised live; owner console encoder verified against
+Anchor. Neither program is audited.
+
+**Quantum** — `quantum/`: SCS Dicke preparation + XY-ring mixer, plus a one-level
+divide-and-conquer construction (`--construction dc`, verified to the same floor, measured on
+all-to-all only, not yet through the noise sweep); 35-point committed characterisation (n=4..16, fidelity 1.0 everywhere; 20 points emulated under noise). Routing
+tax **1.96×** heavy-hex / **2.20×** linear (median, like-for-like), flat in n at n ≤ 16.
+`scripts/heron_qaoa.py` verified end to end in simulation only. **No hardware job has been
+submitted anywhere.**
+
+**Checks** — 406 Python tests (main venv), 68 quantum tests (`.venv-quantinuum`), 40 Rust
+tests + doc test, TypeScript type-check, IDL diffs, SBF lockfile guard, 19-test Anchor suite
+for separatrix (local validator): all green.
+
+Not implemented, and therefore never to be described as working:
+
+- any run on real quantum hardware; a calibrated Helios noise model (server-side only); a
+  transpiler-seed sweep on the heavy-hex arm; the fully recursive O(k log(n/k)) Dicke
+  construction
+- automatic on-chain publication of the workbench's live rebalances
+- npm-packaged SDK, native `anchorpy` client, `close_leash`, SPL-token vaults, x402 flow,
+  hosted dashboard, solver bounty
 
 ## Critical Invariant: IDL Sync
 
-`anchor build`'s IDL generation is broken on this host (rustc-version sensitivity), so each committed IDL is generated by a hand-mirrored script:
+`anchor build`'s IDL generation is broken on this host (rustc-version sensitivity), so each
+committed IDL is generated by a hand-mirrored script:
 
 | Program | Source | Generator | Command | Byte-check |
 | --- | --- | --- | --- | --- |
 | leash | `programs/leash/src/lib.rs` | `scripts/gen-idl.js` | `npm run gen:idl` | `npm run verify:owner-ix` |
 | separatrix | `programs/separatrix/src/lib.rs` | `scripts/gen-separatrix-idl.js` | `npm run gen:idl:separatrix` | `npm run verify:separatrix-idl` |
 
-**If you change any instruction, account, event, or error in either program, you MUST update that program's generator to match, regenerate, rebuild, and redeploy.** A stale IDL produces wrong discriminators and every bridge call fails. CI diffs both committed IDLs against their generators, so drift fails the build rather than surfacing on devnet.
+**If you change any instruction, account, event, or error in either program, you MUST update
+that program's generator to match, regenerate, rebuild, and redeploy.** A stale IDL produces
+wrong discriminators and every bridge call fails. CI diffs both committed IDLs against their
+generators, so drift fails the build rather than surfacing on devnet.
 
-Two more build invariants worth knowing before you touch Rust:
+The owner console's `dashboard/leash-ix.js` also hardcodes discriminators and the
+`LeashState` byte layout. Change the interface, change it too, re-run `npm run verify:owner-ix`.
 
-- The SBF toolchain's cargo 1.75 reads **lockfile v3 only**, and any modern host cargo touching the workspace silently rewrites `Cargo.lock` to v4. `npm run check:sbf-lockfile` catches that (and any host-side crate leaking into the program workspace) — it runs in CI. The fix is in the error message.
-- The `separatrix/` solver crate is a **separate cargo workspace**, excluded from the root one on purpose. Its dependency tree must never enter the SBF lockfile.
+## Other Invariants
 
-The owner console's `dashboard/leash-ix.js` also hardcodes discriminators and the `LeashState` byte layout. If you change the program interface, update it too and re-run `npm run verify:owner-ix`, which byte-compares its output against Anchor and fails loudly on any drift.
+- **SBF lockfile v3.** The Solana 1.18 toolchain's cargo 1.75 reads lockfile v3 only; any
+  modern host cargo touching the root workspace silently rewrites `Cargo.lock` to v4.
+  `npm run check:sbf-lockfile` catches that (and any host crate leaking in) and runs in CI.
+  Never run host `cargo` commands in the repo root; work in `separatrix/` instead.
+- **Two cargo workspaces.** `separatrix/` is excluded from the root workspace on purpose. Its
+  dependency tree must never enter the SBF lockfile.
+- **Four implementations of the commitment preimage must agree**: the program, the Rust
+  exporter (`separatrix-cli --emit-qubo`), `agent/workbench/onchain.py`, and
+  `tests/test_onchain_vectors.py`. Change one, change all four.
+- **Salts** for published allocations live in gitignored `secrets/separatrix/`. Losing them
+  permanently widens the published/revealed gap.
+- **Quantum conventions** (documented in `quantum/dicke_xy.py` and `docs/primitives.md`):
+  IR angles in radians, half-turns only at the pytket boundary; big-endian qubit order; the
+  SCS construction starts from `|1^k 0^{n-k}>` on the *top* qubits with descending `l` and a
+  *negated* controlled-Ry angle. A circuit that fails its fidelity or weight-sector check
+  aborts the sweep; never downgrade that to a warning.
+- **Terminology**: on trapped-ion tracks "leakage" means an ion leaving the computational
+  manifold. Hamming-weight violation is "in-constraint probability". The routing tax is
+  1.96× (like-for-like), not the retracted 3.6×.
 
 ## Working Rules
 
 - Prefer small, reviewable commits with one theme each.
-- Keep Python-side changes covered by `tests/`.
-- Keep Anchor logic small and explicit; policy rules should be auditable.
-- Fail closed around spend approval. Do not add a "skip chain and continue" path for devnet mode.
-- Avoid moving files unless the move clearly improves navigation and does not break imports or scripts.
+- Keep Python-side changes covered by `tests/`; keep Rust changes clippy-clean and formatted.
+- Keep Anchor logic small and explicit; policy rules should be auditable in one sitting.
+- Fail closed around spend approval. Do not add a "skip chain and continue" path.
+- Every number in a doc or report is labelled measured / estimated / NOT RUN. Commit the
+  artifact you got, not the one you wanted.
+- Avoid moving files unless the move clearly improves navigation and does not break imports
+  or scripts.
 
 ## Multi-Agent Reality
 
-Assume you are not the only agent working on this repository.
-
-- Other agents may be working in parallel on overlapping files or adjacent features.
-- Your job is not just to produce output. Your job is to produce mergeable, defensible output.
-
-That means:
+Assume you are not the only agent working in this repository.
 
 - inspect current files before editing them
 - avoid broad rewrites unless they are necessary
-- do not revert or overwrite work you did not create unless the user explicitly asks for it
+- do not revert or overwrite work you did not create unless the user explicitly asks
 - leave changes easy to review and easy to merge
 - if a file looks actively in flux, prefer the smallest safe change
 
@@ -119,78 +171,60 @@ That means:
 
 Operate like a disciplined execution partner, not a passive autocomplete tool.
 
-- Be critical about assumptions.
-- Push back on weak ideas when the code or constraints do not support them.
+- Be critical about assumptions; push back on weak ideas when the code does not support them.
 - Prefer a correct narrow fix over a flashy fragile rewrite.
 - Verify claims with tests or direct inspection whenever possible.
 - If something is unclear, say exactly what is unclear instead of bluffing.
 
-Low-trust behavior is unacceptable here:
-
-- pretending something works when it was not verified
-- writing docs that overclaim implementation status
-- making risky edits without checking surrounding code
-- choosing speed over correctness when the change touches policy, money flow, or deployment
-
-If there is a tradeoff between shipping fast and shipping something brittle, bias toward the change that survives review.
+Unacceptable: pretending something works when it was not verified; docs that overclaim
+implementation status; risky edits without checking surrounding code; choosing speed over
+correctness when the change touches policy, money flow, deployment, or a published number.
 
 ## Safe Commands
 
-Python checks:
-
 ```powershell
+# Python (main venv)
+python -m ruff check agent quantum scripts tests
 python -m unittest discover -s tests -v
-```
-
-TypeScript check:
-
-```powershell
-cmd /c npm run lint:ts
-```
-
-Local scaffold smoke test:
-
-```powershell
 python -m agent.main --init-db --once
-```
 
-Devnet status (read-only):
+# Quantum (dedicated venv; Selene runs offline)
+.venv-quantinuum/Scripts/python -m unittest discover -s tests -p test_quantum_dicke.py
+.venv-quantinuum/Scripts/python -m quantum.characterise --no-selene --n 6 8
 
-```powershell
+# Rust (inside separatrix/)
+cargo fmt --all -- --check; cargo test --workspace; cargo clippy --workspace --all-targets -- -D warnings
+
+# TypeScript + IDLs + lockfile
+cmd /c npm run lint:ts
+npm run check:sbf-lockfile
+
+# Devnet, read-only
 cmd /c npm run devnet:status
-```
-
-API server:
-
-```powershell
-uvicorn agent.api.server:app --reload
+cmd /c npm run separatrix:status
 ```
 
 ## Solana / Anchor Notes
 
-- The source tree targets `anchor-lang 0.30.1` and the Solana 1.18 SBF toolchain.
-- Build the program with `cargo build-sbf --manifest-path programs/leash/Cargo.toml`; do not rely on `anchor build`'s IDL step (see the IDL invariant above).
-- The SBF toolchain's cargo only reads lockfile v3. If host cargo rewrites `Cargo.lock` to `version = 4`, downgrade the header: `sed -i 's/^version = 4$/version = 3/' Cargo.lock`.
-- The dependency pins in `programs/leash/Cargo.toml` exist to keep the tree buildable on the SBF toolchain's rustc 1.75. Do not update them casually.
-- Devnet helpers live under [`scripts/`](scripts/).
+- Targets `anchor-lang 0.30.1` and the Solana 1.18 SBF toolchain.
+- Build with `cargo build-sbf --manifest-path programs/<name>/Cargo.toml`; do not rely on
+  `anchor build`'s IDL step.
+- If host cargo rewrites `Cargo.lock` to `version = 4`, downgrade the header:
+  `sed -i 's/^version = 4$/version = 3/' Cargo.lock`.
+- The dependency pins in both program manifests keep the tree buildable on rustc 1.75. Do
+  not update them casually. Dependabot is configured to skip the root workspace.
+- Devnet helpers live under `scripts/`; the smoke scripts move real devnet SOL.
 
 ## Secrets And Local State
 
-Never commit:
-
-- `.env`
-- anything under `keys/`
-- anything under `secrets/`
-- database files
-- temp publish folders
-- tool downloads
-
-Those paths are ignored on purpose. Keep them that way.
+Never commit: `.env`, anything under `keys/` or `secrets/`, database files, `reports/*`
+outside `reports/examples/`, temp publish folders, tool downloads, virtualenvs, IBM or
+Quantinuum credentials. Those paths are ignored on purpose. Keep them that way.
 
 ## Recommended Contribution Order
 
-1. keep the Python suite and TS lint green
-2. improve program/policy test coverage
-3. make the SDK consumable outside this repo (npm package, anchorpy client)
-4. improve dashboard and demo quality
-5. add richer policy (SPL vaults, rolling windows) only after the core stays credible
+1. keep every check above green
+2. tighten claims before adding features: if a doc and a measurement disagree, fix the doc
+3. quantum: transpiler-seed sweep, the DC arm through the noise sweep, a cheaper 3-qubit gadget
+4. verification: `close_leash`, SPL vaults, workbench auto-publish, packaged SDK
+5. solver: MIP ground truth above the enumeration cap, more instance families

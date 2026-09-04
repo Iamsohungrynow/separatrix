@@ -1,228 +1,347 @@
 <div align="center">
 
-# Leash
+<img src="docs/assets/banner.svg" alt="Separatrix" width="100%">
 
-**On-chain spending guardrails for AI agents on Solana.**
+<br>
 
-Give your agent a wallet it cannot rug you with.
+[![CI](https://github.com/Iamsohungrynow/separatrix/actions/workflows/ci.yml/badge.svg)](https://github.com/Iamsohungrynow/separatrix/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/separatrix.svg?logo=rust&logoColor=white)](https://crates.io/crates/separatrix)
+[![docs.rs](https://img.shields.io/docsrs/separatrix?logo=docs.rs)](https://docs.rs/separatrix)
+[![Solana devnet](https://img.shields.io/badge/solana-devnet-9945FF?logo=solana&logoColor=white)](https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-[Docs Index](docs/README.md) &middot; [Agent Guide](AGENT.md) &middot; [Architecture](docs/design.md) &middot; [Security](docs/security.md) &middot; [Roadmap](docs/ROADMAP.md)
-
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://python.org)
-[![Solana](https://img.shields.io/badge/solana-devnet-9945FF?logo=solana&logoColor=white)](https://solana.com)
-[![Anchor](https://img.shields.io/badge/anchor-0.30.1-blue)](https://www.anchor-lang.com)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+**[Run it in your browser](https://separatrix.vercel.app/demo/)** · [Docs](docs/README.md) · [Workbench study](docs/workbench.md) · [On-chain contract](docs/onchain.md) · [Quantum primitives](docs/primitives.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
-> Status: live on Solana devnet. The program, the TypeScript bridge, the Python client, the demo agent, and the dashboard all run end to end today. Mainnet deployment, SPL-token vaults, and a packaged SDK are roadmap items, not claims.
+---
 
-## The Problem
+Separatrix is a research monorepo about one question: **how well do quantum-inspired
+and quantum methods actually solve a cardinality-constrained selection problem, and can
+you prove it?** It answers that with a solver you can benchmark, a chain that can check
+the answer, and a quantum primitive characterised the way a referee would want it.
 
-Everyone wants AI agents that can pay for things: API credits, data, trades, other agents. Nobody sane wants to hand an LLM their private key. Prompt-level guardrails ("please don't spend more than $5") are not guardrails; they are suggestions to a stochastic process.
+It is deliberately allergic to hype. Every number in this repository is labelled
+**measured**, **estimated**, or **NOT RUN**; the headline metric is the optimality gap
+against an *exact* optimum, never PnL; and nothing here claims quantum advantage.
 
-Leash moves the guardrails onto the chain, where the agent cannot negotiate with them:
+## Three pillars, one history
 
-- The owner funds a **program-owned vault**. The agent's own wallet holds nothing but fee dust.
-- The agent can only move value by calling `spend` on the Leash program.
-- The program enforces a **per-transaction cap**, a **daily budget** (UTC day roll), and an optional **recipient allowlist**.
-- The owner has a **kill switch** (`set_halt`) and can update limits or withdraw the whole vault at any time.
-- Every rule is enforced in program logic, fail-closed. A blocked spend is a failed transaction, not a logged warning.
+| Pillar | What it is | Where it lives | Status |
+| --- | --- | --- | --- |
+| **Solver** | Simulated bifurcation (bSB/dSB, Toshiba lineage) in pure Rust, shipped *with* its baselines: simulated annealing, parallel tempering, and Gray-code exact enumeration. Deterministic per seed, compiles to `wasm32`, quantizes the objective to `i128` so anyone can re-score a solution exactly. | [`separatrix/`](separatrix/) · [crates.io](https://crates.io/crates/separatrix) · [browser demo](https://separatrix.vercel.app/demo/) | shipped |
+| **Verification** | Two Anchor programs on Solana devnet. `separatrix` commits an allocation *before* execution and later re-derives its integer objective on-chain. `leash` is a spending firewall: a program-owned vault with a per-transaction cap, daily budget, allowlist, and owner kill switch that an autonomous agent cannot negotiate with. | [`programs/`](programs/) · [`docs/onchain.md`](docs/onchain.md) · [`docs/design.md`](docs/design.md) | deployed on devnet, unaudited |
+| **Quantum** | The *same* constraint ("exactly k of n") attacked with constraint-preserving ansätze: Bärtschi–Eidenbenz Dicke-state preparation + XY-ring mixers, characterised across (n, k) on all-to-all, heavy-hex and linear connectivity, with physical ion leakage separated from Hamming-weight loss on Quantinuum's Selene emulator. Plus a QAOA pipeline for IBM Heron that refuses to overclaim. | [`quantum/`](quantum/) · [`scripts/heron_qaoa.py`](scripts/heron_qaoa.py) · [`docs/primitives.md`](docs/primitives.md) · [`docs/quantum.md`](docs/quantum.md) | emulated; no hardware job submitted |
 
-## How It Works
+The Python side ([`agent/`](agent/)) ties them together: a walk-forward workbench that
+solves every rebalance of a real crypto universe with every solver *and* by exhaustive
+enumeration, and a demo agent whose spends are metered through the leash.
 
-```text
-owner keypair                          agent keypair (any AI agent)
-     |                                        |
-     |  create_leash / deposit /              |  spend(amount, recipient)
-     |  set_allowlist / set_halt /            |
-     |  update_limits / withdraw              v
-     |                                +---------------+
-     +------------------------------->|  Leash program |  checks: halted? per-tx cap?
-                                      |   (Anchor)     |  daily budget? allowlist? vault?
-                                      +-------+-------+
-                                              | CPI transfer (only if every check passes)
-                                              v
-                                    vault PDA ---> recipient
+## The honesty contract
+
+- **"Quantum-inspired" is a description, not a claim.** Simulated bifurcation is a
+  classical Hamiltonian ODE. Nothing in the solver touches a qubit.
+- **Ground truth or nothing.** The workbench only publishes a gap where the exact
+  optimum was proven; the enumerator refuses instances it cannot finish rather than
+  guessing. Where exact wins, the docs say exact wins.
+- **The chain checks, it does not trust.** A revealed allocation is re-scored on-chain
+  from the sealed coefficients; the objective the chain computed equals the solver's
+  integer exactly, or the reveal fails.
+- **Hardware numbers come from hardware.** The quantum artifacts are emulator runs and
+  say so in their first line. Every hardware column reads NOT RUN until a job runs.
+- **Pre-committed comparisons.** Baselines, cost sensitivities, and the parallel-tempering
+  comparison were fixed before the results were in, and are published whatever they show.
+
+If you find a number that does not survive scrutiny, open a
+[claim challenge](https://github.com/Iamsohungrynow/separatrix/issues/new?template=claim_challenge.yml).
+Correcting it is the point.
+
+## Try it in sixty seconds
+
+**In a tab** — the real crate, compiled to WebAssembly, on real Binance covariance:
+[separatrix.vercel.app/demo](https://separatrix.vercel.app/demo/). Drag the universe up
+and watch exact enumeration fall off a cliff while the heuristics barely notice. That
+cliff is the entire argument for heuristics; below it, they are a losing trade.
+
+**In Rust:**
+
+```bash
+cargo add separatrix
 ```
 
-State lives in a `LeashState` PDA (`["leash", agent]`); funds live in a system-owned vault PDA (`["vault", leash]`) that only the program can sign for. One leash per agent key.
+```rust
+use separatrix::{IsingModel, QuboModel, Solver, SbConfig};
 
-| Instruction | Signer | Effect |
-| --- | --- | --- |
-| `create_leash(per_tx_cap, daily_cap, allowlist_enforced)` | owner | Creates the policy for an agent pubkey (no agent consent needed) |
-| `deposit(amount)` | anyone | Moves SOL into the vault |
-| `spend(amount)` + recipient account | agent | The only value-moving path the agent has; fail-closed policy checks, then CPI transfer |
-| `update_limits(per_tx_cap, daily_cap)` | owner | Adjusts caps |
-| `set_halt(halted)` | owner | Kill switch / resume |
-| `set_allowlist(enforced, recipients[])` | owner | Up to 8 allowed recipients |
-| `withdraw(amount)` | owner | Pulls funds back out |
+let mut qubo = QuboModel::<f64>::new(3);
+qubo.set_term(0, 0, -1.0);
+qubo.set_term(1, 1, -1.0);
+qubo.set_term(0, 1, 2.0);
+qubo.set_term(2, 2, -1.0);
 
-Rejections surface as typed errors: `LeashHalted`, `PerTxCapExceeded`, `DailyCapExceeded`, `RecipientNotAllowed`, `VaultInsufficient`, `UnauthorizedAgent`, `UnauthorizedOwner`.
+let (ising, offset) = IsingModel::from_qubo(&qubo);
+let result = Solver::Sb(SbConfig::default()).solve(&ising).unwrap();
+println!("bits = {:?}, objective = {}", result.bits(), result.energy + offset);
+```
 
-## Live on Devnet
+**The full study, from a clean checkout** (Python 3.12, Rust stable; the data layer
+backfills from Binance public klines first — see [`docs/workbench.md`](docs/workbench.md)):
 
-Deployed and exercised end to end on July 15, 2026:
+```bash
+pip install -r requirements.txt
+cd separatrix && cargo build --release && cd ..
+python -m agent.workbench --start 2021-06-01 --end 2026-07-31 --k 8 \
+  --solvers bsb,dsb,sa,pt,exact --bps 0,10,30 --seed 42 \
+  --max-exact-subsets 100000000 --publish-dashboard
+```
 
-- Program: [`EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV`](https://explorer.solana.com/address/EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV?cluster=devnet)
-- Leash PDA: [`B3zeFVxkcagGrhWUcHzY7Xzdpr5mRGBivS7dwW46f9Zy`](https://explorer.solana.com/address/B3zeFVxkcagGrhWUcHzY7Xzdpr5mRGBivS7dwW46f9Zy?cluster=devnet)
-- Vault PDA: [`BTy6fyiZFSVSP8nS4gofsPqkth5zxBkk3hCNkg7Ess8F`](https://explorer.solana.com/address/BTy6fyiZFSVSP8nS4gofsPqkth5zxBkk3hCNkg7Ess8F?cluster=devnet)
-- `create_leash` (0.05 SOL per-tx cap, 0.2 SOL daily cap): [tx](https://explorer.solana.com/tx/33s3t4QjE1FbTK4xByqNpARth4RVFzpNv9s1QxmjuMrZjV6dJ9y9amvL89eckL2PtQ5vhgHVoj5A87zd2nPyiaqZ?cluster=devnet)
-- `set_allowlist` (treasury only): [tx](https://explorer.solana.com/tx/4W5Nmj81fhQwSkgYqgk9BT91HTpjY3XUtae5qrWcnstAoDdt4AEdiQaWnAGbJyjqR2dYXCdPp2TJZZ5naptdBZer?cluster=devnet)
-- `deposit` 0.5 SOL: [tx](https://explorer.solana.com/tx/3MQ8GzRV7dsDZP6nKvEcbjCgrguviQhCunK91rc89PbMzgkWkSKPJ8r58SxaXYBXdDDThTMqJ2iMiwbydN5HHwKR?cluster=devnet)
-- Agent `spend` 0.025 SOL, approved and transferred: [tx](https://explorer.solana.com/tx/5Pt2CWCmRagDJFdtXu7C8LkU1a21AjThQpgCJkGvtjZNkhYkefrsUdMnLDWSQZGVSH7Xr5hXcEBNH5CcdWN4A4Mc?cluster=devnet)
-- `set_halt(true)`: [tx](https://explorer.solana.com/tx/37MKR64c4KMhKPpWHdmfe5VKhToJQ8suRkstTbnmXGMoftpZePpmzZYc7qoVvvmDestnjap5r6f3aidzhx6fMKPa?cluster=devnet) and resume: [tx](https://explorer.solana.com/tx/57kKyMNMg8jc3rLDjH5zC4duTXtCEHckjX3HvNmWPcQnrAeNyNFKNvxHpuJSUsMkyGkckygvMEhdHH39deYjNSgh?cluster=devnet)
-- Demo agent BUY metered through the leash from Python: [tx](https://explorer.solana.com/tx/3c7MQBDXT9CyeuA5rTWb4jq9M9vXo86z66a9Rar69qRsFnaTwVfDfWGfsGe6DtFjmGZ3ZHGM1H5KzvFS2j4bvCrP?cluster=devnet)
+**The quantum sweep** (own venv, Python ≥ 3.12, no account needed — Selene runs offline):
 
-In the same smoke run, an over-cap spend, a non-allowlisted recipient, and a spend-while-halted were each rejected (`PER_TX_CAP_EXCEEDED`, `RECIPIENT_NOT_ALLOWED`, `LEASH_HALTED`). Those rejections happen at preflight, so they never land on-chain; `npx ts-node scripts/land-rejection.ts` deliberately lands one as a finalized failed transaction if you want explorer-visible proof of enforcement.
+```bash
+python -m venv .venv-quantinuum
+.venv-quantinuum/Scripts/python -m pip install -r requirements-quantinuum.txt   # bin/ on POSIX
+python -m quantum.characterise --n 4 6 8 10 12 --k-mode all --shots 1000 --selene-max-n 12
+```
 
-## Quickstart (against the deployed program)
+## Architecture
 
-Prereqs: Node 18+, Python 3.11+, and three devnet keypairs under `keys/` (`owner-devnet.json`, `agent-devnet.json`, `treasury-devnet.json`). `scripts/setup-devnet.sh` can generate and fund them.
+```mermaid
+flowchart LR
+  subgraph data["Data (Python)"]
+    PH[(price_history<br/>SQLite)] --> WB[Walk-forward workbench<br/>agent/workbench]
+  end
+
+  subgraph solver["Solver (Rust)"]
+    CLI[separatrix-cli<br/>JSON bridge] --> LIB[separatrix crate<br/>bSB · dSB · SA · PT · exact]
+    LIB --> Q[QuantizedQubo<br/>canonical i128 objective]
+    LIB --> WASM[separatrix-wasm<br/>browser demo]
+  end
+
+  subgraph chain["Verification (Solana devnet)"]
+    SP[separatrix program<br/>seal · publish · reveal · re-score]
+    LP[leash program<br/>vault · caps · allowlist · halt]
+  end
+
+  subgraph quantum["Quantum primitives (Python)"]
+    DX[quantum/dicke_xy<br/>Dicke prep + XY mixer IR] --> TK[pytket compile<br/>all-to-all · heavy-hex · line]
+    TK --> SEL[Selene emulator<br/>via generated Guppy]
+    DX --> HQ[scripts/heron_qaoa<br/>QAOA on IBM Heron]
+  end
+
+  WB <--> CLI
+  WB -- "commit hash before execution" --> SP
+  Q -- "same integer objective" --> SP
+  Agent[demo agent<br/>agent/] -- "every spend" --> LP
+  WB -. "same (n, k) instance" .-> HQ
+```
+
+Four independent implementations of the on-chain commitment preimage must agree — the
+program, the Rust exporter, the Python client, and a test-vector file — and CI diffs the
+committed IDLs against their generators so interface drift fails the build instead of
+surfacing on devnet.
+
+## What the measurements say
+
+All figures below are copied from committed artifacts; each links to its source.
+
+**Solver quality** — walk-forward study, 39 assets, K = 8, 234 weekly rebalances
+(2022-02 → 2026-07), exact ground truth on **100 %** of them, up to C(39, 8) = 61.5 M
+subsets per rebalance ([`docs/workbench.md`](docs/workbench.md), [`dashboard/workbench.html`](dashboard/workbench.html)):
+
+| Solver | Median `gap_norm` | At the exact optimum | Mean runtime |
+| --- | ---: | ---: | ---: |
+| exact | 0 | 100 % | 274.3 ms |
+| bSB | 0.031 | 15.0 % | 2.2 ms |
+| SA | 0.079 | 0 % | 1.4 ms |
+| PT | 0.110 | 0 % | 4.9 ms |
+| dSB | 0.325 | 0 % | 1.8 ms |
+
+Read it straight: at this size exact enumeration is affordable and **wins outright**.
+bSB buys a 128× speed-up by landing ~3 % of the way along the achievable objective
+range; dSB is poor on these instances. The case for a heuristic starts where C(N, K)
+stops being enumerable — which is exactly what the browser demo lets you feel.
+
+**On-chain verification** — measured compute units on devnet
+([`docs/onchain.md`](docs/onchain.md)): `reveal_allocation` cost tracks *k*, not *n*
+(≈ 8.5 k CU at k = 4 → ≈ 61 k CU at k = 24), which is why `MAX_CARDINALITY = 40` exists.
+The chain-computed objective equalled the solver's integer exactly
+([reveal tx](https://explorer.solana.com/tx/DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB?cluster=devnet)).
+
+**Connectivity ledger** — Dicke + XY-ring ansatz, 35 (n, k) points, n = 4…16, identical
+pass sequence and native gate set on three coupling graphs
+([`reports/examples/dicke-characterisation/`](reports/examples/dicke-characterisation/report.md), emulated):
+
+| Arm | Two-qubit gates vs all-to-all (median) | Range |
+| --- | ---: | ---: |
+| heavy-hex (IBM Heron map) | **1.96×** | 1.00× – 2.28× |
+| linear | **2.20×** | 1.60× – 2.65× |
+
+Under a spec-parameterised depolarising model the Hamming-weight sector loss is
+≈ 6.8 × 10⁻⁴ per two-qubit gate across circuits whose gate counts differ by 34×, so the
+in-constraint probability of a circuit nobody has run is predictable from its compiled
+gate count. Physical ion leakage and sector loss are reported *separately*, shot by shot.
+The routing tax does **not** visibly widen with n at n ≤ 16; that is reported as a flat
+column, not fitted. A one-level divide-and-conquer construction (Aktar et al.) is also
+implemented and verified to the same floor: on all-to-all it roughly halves two-qubit
+depth against the 2019 cascade but stays ≈ 1.8× above the published CNOT counts, and the
+doc says exactly which gadget decomposition that excess comes from.
+
+**QAOA, simulated** — n = 10, k = 3, XY mixer on a Dicke state, noiseless
+([`reports/examples/heron-simulation/`](reports/examples/heron-simulation/report.md)):
+
+| Sampler | Mean `gap_norm` per shot | P(optimum) per shot | Feasible shots |
+| --- | ---: | ---: | ---: |
+| uniform random feasible portfolio | 0.463 | 0.008 | 100 % |
+| QAOA p = 2, XY/Dicke | **0.203** | **0.066** | 100 % |
+| QAOA p = 2, X mixer + penalty | 0.453 | 0.004 | 61 % |
+
+With only 120 feasible portfolios, "QAOA found the optimum" means nothing — random
+guessing finds it too. The per-shot distribution bias is the *only* defensible claim,
+and the artifact says so in those words. **Hardware: NOT RUN.**
+
+## Live on Solana devnet
+
+| | Address / signature |
+| --- | --- |
+| `separatrix` program | [`CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp`](https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet) |
+| verified reveal (chain objective == solver objective) | [`DoNokz…av7MB`](https://explorer.solana.com/tx/DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB?cluster=devnet) |
+| `leash` program | [`EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV`](https://explorer.solana.com/address/EZQjF3NwVTMUrRdDiCwzuabFEoe2viVfFhEaWPkj6gkV?cluster=devnet) |
+| leash created (0.05 SOL per-tx, 0.2 SOL daily) | [tx](https://explorer.solana.com/tx/33s3t4QjE1FbTK4xByqNpARth4RVFzpNv9s1QxmjuMrZjV6dJ9y9amvL89eckL2PtQ5vhgHVoj5A87zd2nPyiaqZ?cluster=devnet) |
+| agent spend approved and transferred | [tx](https://explorer.solana.com/tx/5Pt2CWCmRagDJFdtXu7C8LkU1a21AjThQpgCJkGvtjZNkhYkefrsUdMnLDWSQZGVSH7Xr5hXcEBNH5CcdWN4A4Mc?cluster=devnet) |
+| kill switch pulled / released | [halt](https://explorer.solana.com/tx/37MKR64c4KMhKPpWHdmfe5VKhToJQ8suRkstTbnmXGMoftpZePpmzZYc7qoVvvmDestnjap5r6f3aidzhx6fMKPa?cluster=devnet) · [resume](https://explorer.solana.com/tx/57kKyMNMg8jc3rLDjH5zC4duTXtCEHckjX3HvNmWPcQnrAeNyNFKNvxHpuJSUsMkyGkckygvMEhdHH39deYjNSgh?cluster=devnet) |
+
+The workbench study itself is a *report*, not a chain record: the studies that exist
+on-chain are smaller instances created to exercise and measure the program.
+Both programs are devnet software and have not been audited.
+
+## Quickstarts by pillar
+
+<details>
+<summary><b>Solver crate and browser demo</b></summary>
+
+```bash
+cd separatrix
+cargo test --workspace                                   # unit, property, doc, CLI protocol
+cargo clippy --workspace --all-targets -- -D warnings
+cargo bench                                              # criterion throughput on dense spin glasses
+cargo check --no-default-features --target wasm32-unknown-unknown
+```
+
+Rebuild the browser bundle with `scripts/build-wasm-demo.sh` (needs `wasm-bindgen`;
+the generated `site/demo/pkg/` is committed so the site deploys toolchain-free). The
+crate is its **own cargo workspace**, deliberately excluded from the repo root.
+
+</details>
+
+<details>
+<summary><b>Workbench and demo agent (Python)</b></summary>
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+python -m unittest discover -s tests -v          # 406 tests
+python -m agent.main --init-db --once            # one demo-agent cycle, local simulator
+uvicorn agent.api.server:app --reload            # observability API; then open dashboard/index.html
+```
+
+The walk-forward contract (formulation, protocol, metrics, JSON bridge) is
+[`docs/workbench.md`](docs/workbench.md). Read it before changing anything it governs.
+
+</details>
+
+<details>
+<summary><b>On-chain programs (Solana devnet)</b></summary>
+
+Prereqs: Node 18+, devnet keypairs under `keys/` (`scripts/setup-devnet.sh` generates and funds them).
 
 ```bash
 npm install
-pip install -r requirements.txt
-cp .env.example .env
-
-# owner: create the leash, allowlist the treasury, fund the vault
-npm run devnet:init
-
-# agent: spend within policy (real SOL moves from the vault)
-npm run devnet:spend -- 0.01
-
-# owner: pull the kill switch, watch the agent get blocked, resume
-npm run devnet:halt
-npm run devnet:spend -- 0.01     # -> {"approved":false,"reason":"LEASH_HALTED"}
-npm run devnet:resume
-
-# the full guardrail demonstration in one command
-npm run devnet:smoke
+npm run separatrix:smoke        # create → write → seal → publish → reveal, verified end to end
+npm run devnet:smoke            # leash: approved spend, cap rejection, allowlist rejection, halt, resume
+npm run separatrix:measure      # compute-unit measurements behind docs/onchain.md
+npm run verify:owner-ix         # byte-compares the wallet console's encoder against Anchor
 ```
 
-Other bridge commands: `devnet:status`, `devnet:status-json`, `devnet:deposit -- <sol>`, `devnet:withdraw -- <sol>`.
+Owner console with no CLI: open [`dashboard/owner.html`](dashboard/owner.html) and
+connect a wallet. Building the programs needs the Solana 1.18 SBF toolchain; the
+committed IDLs mean you do not need it to *use* the deployed programs. Toolchain
+invariants (lockfile v3, hand-mirrored IDL generators) are in [`AGENT.md`](AGENT.md).
 
-## The Demo Agent
+</details>
 
-To make the guardrails visible, the repo ships a deliberately untrusted consumer: an autonomous paper-trading agent (arXiv/news ingestion, Groq scoring, signal validation) whose every BUY must clear the leash with a real devnet spend before the paper trade executes. If the chain says no, the trade does not happen — the bridge is fail-closed end to end.
+<details>
+<summary><b>Quantum primitives (Quantinuum stack) and QAOA (IBM)</b></summary>
 
 ```bash
-# one demo cycle (set ENABLE_DEVNET_LEASH=true in .env for the on-chain path)
-python -m agent.main --init-db --once
+# Dicke + XY characterisation on Selene (offline, no account)
+.venv-quantinuum/Scripts/python -m quantum.characterise --n 4 6 8 10 12 14 16 --k-mode all \
+  --p 1 --shots 1000 --selene-max-n 12 --max-statevector-n 16
+.venv-quantinuum/Scripts/python -m unittest discover -s tests -p test_quantum_dicke.py
 
-# live pipeline (needs GROQ_API_KEY), or --loop for continuous cycles
-python -m agent.main --live
-
-# observability API + dashboard
-uvicorn agent.api.server:app --reload
-# then open dashboard/index.html
+# QAOA pipeline: simulation only by default, --dry-run is ON
+pip install -r requirements-quantum.txt
+python scripts/heron_qaoa.py --fake-backend FakeKingston     # routed gate counts, executes nothing
+python scripts/heron_qaoa.py --backend ibm_kingston --no-dry-run   # the one command that uses a QPU
 ```
 
-The dashboard shows the leash state (vault balance, caps, budget meter, halt state) and every spend with its explorer link, refreshed live.
+Prior art, conventions, and the two corrections that must not be re-introduced (the
+routing tax is 1.96×, not 3.6×; "leakage" means ions leaving the computational manifold)
+are in [`docs/primitives.md`](docs/primitives.md) and [`docs/quantum.md`](docs/quantum.md).
 
-## Owner Console (no CLI)
+</details>
 
-`dashboard/owner.html` is a self-contained wallet-adapter page for owners: connect a Solana wallet (Phantom), then create a leash, deposit to the vault, set caps and the recipient allowlist, halt/resume, or withdraw — all as real devnet transactions signed in your wallet. No CLI, no keys on disk.
+## Repository map
 
-It has no build step: it loads a vendored `@solana/web3.js` (offline-safe) and builds instructions from the committed IDL via `dashboard/leash-ix.js`. Open the file or serve the `dashboard/` folder; `owner.html?agent=<pubkey>` deep-links straight to one agent's leash (read-only until a wallet connects).
-
-Because a headless environment can't drive a wallet, the instruction bytes are proven correct another way: `npm run verify:owner-ix` builds every instruction with the page's own encoder and byte-compares it against Anchor, then decodes the live on-chain account to confirm the read path. That check passes against the deployed program.
-
-## Using Leash from Your Own Agent
-
-TypeScript (the bridge in `scripts/devnet-leash.ts` is the reference; the IDL ships in `idl/leash.json`):
-
-```ts
-const idl = JSON.parse(fs.readFileSync("idl/leash.json", "utf8"));
-const program = new anchor.Program(idl, provider);
-await program.methods
-  .spend(new anchor.BN(lamports))
-  .accounts({ leash, agent: agentPubkey, vault, recipient, systemProgram })
-  .signers([agentKeypair])
-  .rpc(); // throws PerTxCapExceeded / DailyCapExceeded / ... when blocked
+```
+separatrix/          Rust solver crate (own workspace): sb · sa · pt · exact · quantized · portfolio
+  cli/               JSON stdin/stdout bridge the Python workbench shells out to
+  wasm/              wasm-bindgen bindings for the browser demo
+programs/            Anchor programs: separatrix (commit + re-score) and leash (spending firewall)
+idl/                 Committed IDLs, generated by scripts/gen-*.js and diffed in CI
+scripts/             devnet bridges (TypeScript), IDL generators, heron_qaoa.py, wasm build
+agent/               Python: demo agent, FastAPI, price history, workbench (walk-forward harness)
+quantum/             Dicke + XY IR, verification, pytket compile arms, Selene backend, the sweep
+tests/               406 Python tests (68 of them quantum), Anchor TypeScript suites
+dashboard/           Live monitor, wallet owner console, workbench report viewer
+site/                separatrix.vercel.app: landing page and the WASM demo
+reports/examples/    Committed artifacts: workbench study, Dicke characterisation, QAOA simulation
+docs/                Contracts and references (start at docs/README.md)
 ```
 
-Python (subprocess bridge, no Rust/Anchor toolchain needed at runtime):
+## Validation surface
 
-```python
-from agent.trading.leash_client import AnchorLeashClient
-from agent.models import SpendRequest
+Green in CI on every push: Python lint + 406 tests, the pytket layer of the quantum
+tests, TypeScript type-check, IDL-vs-generator diffs, the SBF lockfile guard, and the
+Rust crate's format, tests, clippy, wasm32 check, and docs build.
 
-leash = AnchorLeashClient(rpc_url=..., program_id=..., wallet_path="keys/agent-devnet.json")
-decision = leash.request_spend(SpendRequest(amount_sol=0.01))
-# decision.approved, decision.reason, decision.tx_signature
-```
+Run locally, not in CI: the Selene/Guppy layer (`requirements-quantinuum.txt`), the
+devnet smoke scripts (they move real devnet SOL), and the Anchor suites against a local
+validator (`npm run test:anchor`).
 
-## Repo Map
+## Status and roadmap
 
-- [`programs/leash/`](programs/leash/) — the Anchor program (single ~400-line `lib.rs`, auditable in one sitting)
-- [`idl/leash.json`](idl/leash.json) — committed IDL; regenerate with `npm run gen:idl`
-- [`scripts/devnet-leash.ts`](scripts/devnet-leash.ts) — owner/agent CLI bridge (init, spend, halt, smoke, ...)
-- [`agent/`](agent/) — Python demo agent: ingestion, scoring, paper executor, leash client, FastAPI
-- [`dashboard/`](dashboard/) — static live monitor (`index.html`) and the owner console (`owner.html` + `owner.js` + `leash-ix.js`)
-- [`scripts/verify-owner-ix.js`](scripts/verify-owner-ix.js) — proves the owner console's encoder matches Anchor
-- [`tests/`](tests/) — Python unit tests (109) and the Anchor TypeScript test suite
-- [`docs/`](docs/) — design, security model, roadmap, contributor guide
+Shipped: solver crate, portfolio workbench with proven optima, browser demo, both devnet
+programs, wallet owner console, Dicke/XY characterisation with a committed 35-point
+report, QAOA pipeline verified in simulation.
 
-## Building the Program from Source
+Not built, and therefore not claimed: a hardware run on any QPU, a calibrated
+Helios noise model (server-side only), a transpiler-seed sweep on the heavy-hex arm,
+SPL-token vaults for the leash, a packaged SDK, automatic on-chain publication of the
+workbench's live rebalances. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-You only need this to modify the program; the deployed program plus committed IDL serve every other workflow.
+## Contributing and citing
 
-```bash
-cargo build-sbf --manifest-path programs/leash/Cargo.toml   # -> target/deploy/leash.so
-solana program deploy target/deploy/leash.so --program-id target/deploy/leash-keypair.json -u devnet -k keys/owner-devnet.json
-```
+Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the three
+toolchains, the invariants, and the rules for claims. Coding agents should read
+[`AGENT.md`](AGENT.md). Security reports: [`SECURITY.md`](SECURITY.md).
 
-Toolchain notes (hard-won, especially on Windows):
+If Separatrix is useful in your research, cite it via the repository's
+[`CITATION.cff`](CITATION.cff) (GitHub renders a "Cite this repository" button).
 
-- The Solana 1.18 SBF toolchain bundles cargo 1.75, which only reads lockfile v3. Modern host cargo writes v4. If the build complains about the lock file, regenerate it via host `cargo metadata`, then downgrade the header: `sed -i 's/^version = 4$/version = 3/' Cargo.lock`.
-- `anchor build`'s IDL step compiles host-side and is brittle across rustc versions. The repo instead commits the IDL and regenerates it deterministically with `npm run gen:idl` (`scripts/gen-idl.js` mirrors `lib.rs`; discriminators are sha256 prefixes). If you change the program's interface, update both `lib.rs` and `gen-idl.js`.
-- Dependency pins in `programs/leash/Cargo.toml` keep the tree compatible with the SBF toolchain's rustc 1.75. Do not "helpfully" update them.
+## Author and license
 
-## Validation Surface
+Separatrix is built and maintained by **Martina**
+([@Iamsohungrynow](https://github.com/Iamsohungrynow)). The repository grew through two
+earlier incarnations — a research-signal paper trader (QubitAlpha) and the Leash spending
+firewall — and keeps that history rather than rewriting it.
 
-Verified in the default local workflow:
-
-- `python -m unittest discover -s tests` — 109 tests
-- `npm run lint:ts` — bridge, scripts, and Anchor tests type-check
-- `npm run devnet:smoke` — live guardrail enforcement against the deployed program
-
-Not part of the default verified path:
-
-- `npm run test:anchor` (requires a local validator; the devnet smoke covers the same behavior against the real cluster)
-
-## Security Model (short version)
-
-- Compromised agent key: bounded loss — at most `min(per_tx_cap, remaining daily budget)` per day, only to allowlisted recipients, and the owner can halt instantly.
-- Compromised owner key: game over, as with any ownership system. Keep it cold.
-- The bridge and executor fail closed: any error (RPC down, program missing, malformed output) is a rejection, never an approval.
-
-Details and limitations in [`docs/security.md`](docs/security.md). This is devnet software; it has not been audited.
-
-## Also in This Repo: Separatrix
-
-[`separatrix/`](separatrix/) is a second, independent project sharing this history: a pure-Rust **simulated bifurcation** solver (the quantum-inspired Ising/QUBO algorithm family from Goto et al., *Science Advances* 2019/2021), published on [crates.io](https://crates.io/crates/separatrix) and paired with a walk-forward portfolio workbench.
-
-Its point is measurement discipline rather than any performance claim: every rebalance in the study is solved by bSB, dSB, simulated annealing, and parallel tempering **and** by exact enumeration of all `C(N,K)` subsets, so each solver's optimality gap is measured against a proven optimum — and, since enumeration also finds the worst feasible portfolio, against the full achievable range.
-
-The published study covers 39 assets, K=8 and 234 weekly rebalances with exact ground truth on **100%** of them. The result it reports is not a win: exact enumeration is affordable at this size and beats every heuristic, with bSB landing ~3% along the objective range for a 128× speed-up and dSB doing poorly. No quantum advantage is claimed anywhere — the baselines and the ground truth exist precisely to keep the claims small and checkable.
-
-A second Anchor program, [`separatrix`](programs/separatrix/), implements the commit-and-verify mechanism a record like that could one day stand on — deployed on devnet at [`CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp`](https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet). It exploits the same asymmetry the project is built on: choosing the best K-of-N portfolio is NP-hard, but *checking* what one scores is O(K²) integer additions. So an agent commits `hash(allocation‖salt)` before the market moves, and on reveal the program re-derives the objective itself from a problem matrix frozen against a hash.
-
-**The walk-forward study above is not on-chain.** It was run off-chain and is published as a report. The studies the program has actually carried are separate and much smaller — created to exercise and measure it, within its limits of N ≤ 48 and K ≤ 40 — and wiring the workbench's live rebalances into it is not done. What is verified live is the mechanism, on one of those studies: the objective the chain computed equals the solver's, exactly ([reveal tx](https://explorer.solana.com/tx/DoNokzvPXDyMkq8V42wERNr5PCZRizAbKwJrDCJ2GZjoADSi8hWR2bGfnC3gsTvh2LdNoqG4SZMDPnUVPPav7MB?cluster=devnet), N=8, K=4, 8,554 CU). Verification cost tracks K, not the universe: 8.5k CU at K=4 through 61k at K=24, barely moving as N goes 8 → 48, and 154k at the program's K=40 ceiling.
-
-What it deliberately does not prove: nothing on a public chain can force a reveal, so the program makes selective silence *countable* instead — one bound agent that signs to accept the binding, strictly monotonic sequences, and both `published_count` and `revealed_count` on-chain. Quote both numbers or you are misreading the record. And that counting is per study: nothing links an agent's studies together, so an agent can always abandon an awkward one and open a fresh pair of counters. [`docs/onchain.md`](docs/onchain.md) §7 is the full list of what this does not prove.
-
-- [`docs/workbench.md`](docs/workbench.md) — formulation, walk-forward rules, evaluation standards, solver protocol
-- [`docs/onchain.md`](docs/onchain.md) — account layout, the two preimages byte by byte, measured compute units
-- [`separatrix/README.md`](separatrix/README.md) — the crate
-- `dashboard/workbench.html` — the study rendered as notebook cells
-- [separatrix.vercel.app](https://separatrix.vercel.app) — project page
-
-## Origin
-
-Leash grew out of QubitAlpha, an autonomous trading-agent experiment. The trading pipeline survives as the demo agent; the on-chain policy controller grew into the product. Separatrix is QubitAlpha's other half returning — the quantitative engine, rebuilt in Rust, wearing the leash it created. Git history preserves the whole journey.
-
-## License
-
-MIT
+Released under the [MIT License](LICENSE).
