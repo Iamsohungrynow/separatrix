@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import logging
 from datetime import datetime, timezone
-from typing import Any
 from xml.etree import ElementTree
 
 import httpx

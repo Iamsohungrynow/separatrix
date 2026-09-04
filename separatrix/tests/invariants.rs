@@ -156,7 +156,9 @@ fn all_solvers_reach_ground_state_at_n16() {
     let mut model = IsingModel::<f64>::new(n);
     let mut state: u64 = 42;
     let mut next = move || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         ((state >> 33) as f64 / (1u64 << 31) as f64) * 4.0 - 2.0
     };
     for i in 0..n {
@@ -168,10 +170,32 @@ fn all_solvers_reach_ground_state_at_n16() {
 
     let ground = exact::solve(&model).unwrap();
     let solvers = [
-        Solver::Sb(SbConfig { variant: SbVariant::Ballistic, steps: 4000, replicas: 16, seed: 1, ..SbConfig::default() }),
-        Solver::Sb(SbConfig { variant: SbVariant::Discrete, steps: 4000, replicas: 16, seed: 1, ..SbConfig::default() }),
-        Solver::Sa(SaConfig { sweeps: 3000, restarts: 16, seed: 1, ..SaConfig::default() }),
-        Solver::Pt(PtConfig { sweeps: 3000, replicas: 16, seed: 1, ..PtConfig::default() }),
+        Solver::Sb(SbConfig {
+            variant: SbVariant::Ballistic,
+            steps: 4000,
+            replicas: 16,
+            seed: 1,
+            ..SbConfig::default()
+        }),
+        Solver::Sb(SbConfig {
+            variant: SbVariant::Discrete,
+            steps: 4000,
+            replicas: 16,
+            seed: 1,
+            ..SbConfig::default()
+        }),
+        Solver::Sa(SaConfig {
+            sweeps: 3000,
+            restarts: 16,
+            seed: 1,
+            ..SaConfig::default()
+        }),
+        Solver::Pt(PtConfig {
+            sweeps: 3000,
+            replicas: 16,
+            seed: 1,
+            ..PtConfig::default()
+        }),
     ];
     for solver in &solvers {
         let r = solver.solve(&model).unwrap();
@@ -194,7 +218,9 @@ fn quantized_pipeline_end_to_end() {
     let mut qubo = QuboModel::<f64>::new(n);
     let mut state: u64 = 7;
     let mut next = move || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         ((state >> 33) as f64 / (1u64 << 31) as f64) * 2.0 - 1.0
     };
     for i in 0..n {
@@ -208,9 +234,14 @@ fn quantized_pipeline_end_to_end() {
     let (ising, offset) = IsingModel::from_qubo(&canonical);
 
     let ground = exact::solve(&ising).unwrap();
-    let heuristic = Solver::Sa(SaConfig { sweeps: 2000, restarts: 8, seed: 3, ..SaConfig::default() })
-        .solve(&ising)
-        .unwrap();
+    let heuristic = Solver::Sa(SaConfig {
+        sweeps: 2000,
+        restarts: 8,
+        seed: 3,
+        ..SaConfig::default()
+    })
+    .solve(&ising)
+    .unwrap();
 
     // Integer objective of the heuristic's bits, scored the canonical way.
     let heuristic_obj = qq.objective(&heuristic.bits());
@@ -243,7 +274,9 @@ fn f32_reported_energy_is_exactly_the_energy_of_the_spins() {
     let mut m = IsingModel::<f32>::new(n);
     let mut state: u64 = 99;
     let mut next = move || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         ((state >> 33) as f32 / (1u64 << 31) as f32) * 2.0 - 1.0
     };
     for i in 0..n {
@@ -254,10 +287,32 @@ fn f32_reported_energy_is_exactly_the_energy_of_the_spins() {
     }
 
     let solvers = [
-        Solver::Sb(SbConfig { variant: SbVariant::Ballistic, steps: 1000, replicas: 4, seed: 5, ..SbConfig::default() }),
-        Solver::Sb(SbConfig { variant: SbVariant::Discrete, steps: 1000, replicas: 4, seed: 5, ..SbConfig::default() }),
-        Solver::Sa(SaConfig { sweeps: 2000, restarts: 4, seed: 5, ..SaConfig::default() }),
-        Solver::Pt(PtConfig { sweeps: 2000, replicas: 8, seed: 5, ..PtConfig::default() }),
+        Solver::Sb(SbConfig {
+            variant: SbVariant::Ballistic,
+            steps: 1000,
+            replicas: 4,
+            seed: 5,
+            ..SbConfig::default()
+        }),
+        Solver::Sb(SbConfig {
+            variant: SbVariant::Discrete,
+            steps: 1000,
+            replicas: 4,
+            seed: 5,
+            ..SbConfig::default()
+        }),
+        Solver::Sa(SaConfig {
+            sweeps: 2000,
+            restarts: 4,
+            seed: 5,
+            ..SaConfig::default()
+        }),
+        Solver::Pt(PtConfig {
+            sweeps: 2000,
+            replicas: 8,
+            seed: 5,
+            ..PtConfig::default()
+        }),
     ];
     for solver in &solvers {
         let r = solver.solve(&m).unwrap();

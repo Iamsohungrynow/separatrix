@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import shutil
 import sys
 import unittest
@@ -9,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 
 from agent.db.database import Database
 from agent.main import build_parser, main
-from agent.models import Signal
 
 
 class MainEntryPointTestCase(unittest.TestCase):

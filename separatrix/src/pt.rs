@@ -50,7 +50,10 @@ struct Replica<T> {
 pub fn solve<T: Float + Send + Sync>(model: &IsingModel<T>, cfg: &PtConfig) -> SolveResult<T> {
     assert!(cfg.replicas >= 2, "PtConfig.replicas must be at least 2");
     assert!(cfg.sweeps > 0, "PtConfig.sweeps must be positive");
-    assert!(cfg.exchange_every > 0, "PtConfig.exchange_every must be positive");
+    assert!(
+        cfg.exchange_every > 0,
+        "PtConfig.exchange_every must be positive"
+    );
     let n = model.n();
     if n == 0 {
         return SolveResult {
@@ -135,7 +138,10 @@ pub fn solve<T: Float + Send + Sync>(model: &IsingModel<T>, cfg: &PtConfig) -> S
                 .for_each(sweep_replica);
         }
         #[cfg(not(feature = "parallel"))]
-        replicas.iter_mut().zip(temps.iter()).for_each(sweep_replica);
+        replicas
+            .iter_mut()
+            .zip(temps.iter())
+            .for_each(sweep_replica);
 
         for (slot, rep) in replicas.iter().enumerate() {
             if rep.energy < best_energy {
@@ -188,7 +194,13 @@ mod tests {
         m.set_coupling(0, 1, -1.0);
         m.set_coupling(1, 2, -1.0);
         m.set_coupling(0, 2, -1.0);
-        let r = solve(&m, &PtConfig { seed: 2, ..PtConfig::default() });
+        let r = solve(
+            &m,
+            &PtConfig {
+                seed: 2,
+                ..PtConfig::default()
+            },
+        );
         assert_eq!(r.energy, -1.0);
     }
 
@@ -200,7 +212,10 @@ mod tests {
                 m.set_coupling(i, j, (((i * 5 + j * 11) % 7) as f64) - 3.0);
             }
         }
-        let cfg = PtConfig { seed: 42, ..PtConfig::default() };
+        let cfg = PtConfig {
+            seed: 42,
+            ..PtConfig::default()
+        };
         assert_eq!(solve(&m, &cfg), solve(&m, &cfg));
     }
 }
