@@ -74,12 +74,12 @@ def create_app(
 
     @app.get("/signal/latest")
     def latest_signal() -> dict[str, object]:
-        return {"signal": current_database.latest_signal(), "x402_enabled": current_settings.enable_x402}
+        return {"signal": current_database.latest_signal()}
 
     @app.get("/signal/history")
     def signal_history(limit: int = 20) -> dict[str, object]:
         limit = max(1, min(limit, 100))
-        return {"signals": current_database.signal_history(limit=limit), "x402_enabled": current_settings.enable_x402}
+        return {"signals": current_database.signal_history(limit=limit)}
 
     @app.get("/trades")
     def trades(limit: int = 20) -> dict[str, object]:
@@ -87,7 +87,7 @@ def create_app(
         rows = current_database.trade_history(limit=limit)
         for row in rows:
             row["explorer_url"] = _explorer_tx(row.get("tx_signature"))
-        return {"trades": rows, "x402_enabled": current_settings.enable_x402}
+        return {"trades": rows}
 
     return app
 
