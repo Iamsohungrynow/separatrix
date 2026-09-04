@@ -100,6 +100,14 @@ configuration; exact integer/float scoring agreement after quantization; and
 that **no heuristic ever reports an energy below the exact ground state**.
 `cargo test` runs the lot.
 
+## Related crates in this workspace
+
+| Crate | Published | Purpose |
+| --- | --- | --- |
+| `separatrix` | crates.io | the library |
+| `separatrix-cli` | no | JSON stdin/stdout bridge for the Python workbench (`--emit-qubo` also exports the on-chain coefficient digest) |
+| `separatrix-wasm` | no | `wasm-bindgen` bindings behind the browser demo |
+
 ## References
 
 - H. Goto, K. Tatsumura, A. R. Dixon, *Combinatorial optimization by simulating
@@ -113,13 +121,22 @@ that **no heuristic ever reports an energy below the exact ground state**.
 
 ## Status
 
-The crate ships the solver core plus `portfolio`: the cardinality-constrained
-selection QUBO, greedy repair to exactly K, and a K-subset enumerator that
-returns proven optima up to a configurable `C(N,K)` cap.
+`0.2.0` ships the solver core plus `portfolio`: the cardinality-constrained
+selection QUBO with automatic penalty, greedy repair to exactly K, and a
+K-subset enumerator that returns proven optima (best *and* worst) up to a
+configurable `C(N,K)` cap. (`0.1.0` on crates.io predates the portfolio module.)
 
-The walk-forward workbench that consumes it lives in the parent repo next to
-[Leash](../README.md). Still unbuilt, and therefore still unclaimed: the
-on-chain commitment/scoring program on Solana, the browser demo, and the
-real-quantum-hardware comparison run.
+Around the crate, in the [parent repository](https://github.com/Iamsohungrynow/separatrix):
+
+- the walk-forward workbench and the published study above;
+- a **browser demo** at <https://separatrix.vercel.app/demo> — this crate compiled
+  to WebAssembly (`wasm/`), running every solver and exact enumeration in a tab;
+- a **Solana program** (devnet) that commits an allocation before execution and
+  re-derives its `i128` objective on-chain from the same `QuantizedQubo` scores;
+- the **quantum** side: Dicke-state + XY-mixer primitives characterised on
+  Quantinuum's emulator, and a QAOA pipeline for IBM hardware that has been
+  run in simulation only.
+
+Not done, and therefore not claimed: a run on real quantum hardware.
 
 License: MIT

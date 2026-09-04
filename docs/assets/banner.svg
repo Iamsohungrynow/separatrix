@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Separatrix</title>
+  <desc id="d">A trajectory approaches a saddle point and bifurcates into the spin-up and spin-down branches; the dashed line between them is the separatrix.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0F1517"/>
+      <stop offset="1" stop-color="#16201F"/>
+    </linearGradient>
+    <linearGradient id="up" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E4EAE7"/>
+      <stop offset="1" stop-color="#43BCA9"/>
+    </linearGradient>
+    <linearGradient id="down" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E4EAE7"/>
+      <stop offset="1" stop-color="#D68F52"/>
+    </linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1F2A2D" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="300" rx="14" fill="url(#bg)"/>
+  <rect width="1200" height="300" rx="14" fill="url(#grid)"/>
+
+  <!-- the bifurcation figure, right-hand side -->
+  <g transform="translate(640 0)">
+    <line x1="40" y1="150" x2="230" y2="150" stroke="#E4EAE7" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 230 150 C 330 150 360 70 520 52" fill="none" stroke="url(#up)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 230 150 C 330 150 360 230 520 248" fill="none" stroke="url(#down)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="230" y1="150" x2="520" y2="150" stroke="#94A29D" stroke-width="1.5" stroke-dasharray="2 7" stroke-linecap="round"/>
+    <circle cx="230" cy="150" r="5" fill="#E4EAE7"/>
+    <circle cx="230" cy="150" r="11" fill="none" stroke="#E4EAE7" stroke-opacity="0.35" stroke-width="1.5"/>
+    <text x="500" y="40" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="15" fill="#43BCA9">s = +1</text>
+    <text x="500" y="275" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="15" fill="#D68F52">s = −1</text>
+    <text x="392" y="141" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="12" fill="#94A29D">separatrix</text>
+  </g>
+
+  <!-- wordmark, left-hand side -->
+  <text x="64" y="112" font-family="ui-monospace, Consolas, Menlo, monospace" font-size="15" letter-spacing="4" fill="#43BCA9">QUANTUM-INSPIRED · VERIFIED · HONEST</text>
+  <text x="62" y="176" font-family="Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif" font-size="72" font-weight="600" letter-spacing="-1" fill="#E4EAE7">separatrix</text>
+  <text x="64" y="218" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="19" fill="#94A29D">A simulated-bifurcation solver in Rust, exact ground truth for every claim,</text>
+  <text x="64" y="246" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="19" fill="#94A29D">commitments on Solana, and Dicke-state primitives on trapped-ion hardware.</text>
+</svg>

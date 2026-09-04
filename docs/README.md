@@ -4,48 +4,66 @@ Use this folder as the stable entrypoint for project context.
 
 ## Start Here
 
-- [`../README.md`](../README.md): public overview, live devnet addresses, and quick start
-- [`../AGENT.md`](../AGENT.md): contributor and coding-agent operating guide
-- [`HACKATHON_DEV_GUIDE.md`](HACKATHON_DEV_GUIDE.md): fastest path to ship changes
+- [`../README.md`](../README.md): what Separatrix is, live addresses, results, quick starts
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md): setup for the three toolchains, the check
+  matrix, the rules for claims
+- [`../AGENT.md`](../AGENT.md): the denser operating guide for humans and coding agents,
+  invariants first
+- [`../CHANGELOG.md`](../CHANGELOG.md): what landed when
+- [`../SECURITY.md`](../SECURITY.md): how to report a vulnerability
 
-## Architecture And Scope
+## Binding Contracts
 
-- [`design.md`](design.md): program model, bridge model, demo-agent model
-- [`security.md`](security.md): threat model, enforcement properties, known limitations
-- [`ROADMAP.md`](ROADMAP.md): delivery phases and non-goals
-- [`workbench.md`](workbench.md): Separatrix portfolio formulation, walk-forward
-  rules, evaluation standards, and the Python/Rust solver protocol
-- [`onchain.md`](onchain.md): the separatrix program's byte-level contract —
-  account sizes and rent, both hash preimages, the LSB-first bitmap, measured
-  compute units, and what the program does *not* prove
-- [`quantum.md`](quantum.md): the *only* genuinely quantum step in the project
-  (`scripts/heron_qaoa.py`) — what QAOA does here, what will and will not be
-  claimed, current IBM Quantum access/pricing, and how to run it on hardware
+Each of these governs a surface; read the contract before changing the surface.
+
+- [`workbench.md`](workbench.md): portfolio formulation, walk-forward rules, metrics
+  (`gap_norm` is the headline), and the JSON protocol between Python and `separatrix-cli`
+- [`onchain.md`](onchain.md): the `separatrix` program byte by byte — account sizes and rent,
+  both hash preimages, the LSB-first bitmap, measured compute units, and what the program
+  does *not* prove
+- [`design.md`](design.md) and [`security.md`](security.md): the `leash` program model,
+  bridge model, demo-agent model, threat model, and known limitations
+- [`primitives.md`](primitives.md): the `quantum/` package — Dicke + XY-ring conventions,
+  the three-arm compile protocol, the Selene route, the committed 35-point run, prior art,
+  and the two corrections that must not be re-introduced
+- [`quantum.md`](quantum.md): `scripts/heron_qaoa.py` — what QAOA does here, what will and
+  will not be claimed, IBM access and pricing, how to run it on hardware
+
+## Planning
+
+- [`ROADMAP.md`](ROADMAP.md): per-pillar done / next lists and the non-goals
 
 ## When To Read What
 
-- Working on the Anchor program:
-  Read `design.md`, `security.md`, and `tests/anchor/leash.ts`; note the IDL rule in `AGENT.md` (update `scripts/gen-idl.js` with any interface change)
-- Working on the Python runtime:
-  Read `design.md`, then `HACKATHON_DEV_GUIDE.md`
-- Working on the solver or the portfolio study:
-  Read `workbench.md` first — it is the binding contract for the formulation,
-  the walk-forward rules, and the JSON protocol; then `separatrix/README.md`
-- Working on docs or demos:
-  Read `README.md` and `ROADMAP.md`
+- Working on the Anchor programs: `design.md`, `security.md`, `onchain.md`, the relevant
+  `tests/anchor/*.ts`, and the IDL rule in `AGENT.md` (update the generator with any
+  interface change)
+- Working on the solver or the study: `workbench.md` first, then `separatrix/README.md`
+- Working on the Python runtime: `design.md`, then `CONTRIBUTING.md`
+- Working on the quantum side: `primitives.md` (characterisation) or `quantum.md` (QAOA),
+  then the module docstrings, which are the source of truth for conventions
+- Working on docs or demos: `README.md` and `ROADMAP.md`, and keep every claim narrower
+  than the evidence
 
 ## Current Validation Surface
 
-Green by default:
+Green in CI on every push:
 
-- `python -m unittest discover -s tests -v`
-- `cmd /c npm run lint:ts`
-- `npm run devnet:smoke` (live enforcement against the deployed devnet program)
-- `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings`, run inside `separatrix/`
+- `python -m ruff check agent quantum scripts tests` and
+  `python -m unittest discover -s tests -v` (406 tests)
+- the pytket layer of `tests/test_quantum_dicke.py` (68 tests; Selene-dependent ones skip
+  in CI and run locally)
+- `npm run lint:ts`, `npm run check:sbf-lockfile`, and IDL-vs-generator diffs
+- inside `separatrix/`: `cargo fmt --check`, `cargo test --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, the `wasm32` check, and
+  `cargo doc` with warnings as errors
 
-Not default-green yet:
+Run locally, not in CI:
 
+- the full quantum suite in `.venv-quantinuum` (needs `requirements-quantinuum.txt`)
+- `npm run devnet:smoke` and `npm run separatrix:smoke` (they move real devnet SOL)
 - `npm run test:anchor` (needs a local validator)
-- `anchor build`'s IDL step (host-toolchain sensitive; the committed IDL + `npm run gen:idl` is the supported path)
+- `anchor build`'s IDL step (host-toolchain sensitive; the committed IDL + generators is the
+  supported path)
 
 Treat that distinction seriously when updating docs or PR descriptions.

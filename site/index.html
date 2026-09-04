@@ -3,12 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>separatrix — quantum-inspired Ising/QUBO solvers in Rust</title>
-<meta name="description" content="Simulated bifurcation (bSB/dSB) in pure Rust, benchmarked honestly against simulated annealing, parallel tempering, and exact ground truth. No quantum advantage claimed.">
+<title>separatrix — quantum-inspired optimisation you can check</title>
+<meta name="description" content="A simulated-bifurcation solver in pure Rust benchmarked against exact ground truth, a Solana program that re-scores committed allocations on-chain, and Dicke-state primitives characterised on trapped-ion connectivity. No quantum advantage claimed.">
+<meta property="og:title" content="separatrix — quantum-inspired optimisation you can check">
+<meta property="og:description" content="Simulated bifurcation in Rust with honest baselines, on-chain verification on Solana, and constraint-preserving quantum primitives. Every number labelled measured, estimated, or not run.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://separatrix.vercel.app/">
 <style>
   :root {
     --bg: #12181A;
     --surface: #1A2124;
+    --surface-2: #202A2E;
     --ink: #E4EAE7;
     --ink-soft: #94A29D;
     --line: #2A3438;
@@ -19,48 +24,104 @@
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
   body {
     background: var(--bg); color: var(--ink); font-family: var(--sans);
-    line-height: 1.6; min-height: 100svh; display: grid; place-items: center;
-    padding: 2rem 1.25rem;
+    line-height: 1.6; min-height: 100svh; padding: 3rem 1.25rem 4rem;
   }
-  main { max-width: 40rem; width: 100%; }
+  main { max-width: 56rem; width: 100%; margin: 0 auto; }
+  a { color: var(--acc); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover, a:focus-visible { border-bottom-color: var(--acc); outline: none; }
+  code { font-family: var(--mono); font-size: 0.9em; color: var(--acc2); }
+
   .eyebrow {
     font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
     text-transform: uppercase; color: var(--acc);
   }
   h1 {
-    font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 7vw, 3.2rem);
-    letter-spacing: -0.01em; line-height: 1.1; margin: 0.4rem 0 0.9rem;
-    text-wrap: balance;
+    font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 6.5vw, 3.4rem);
+    letter-spacing: -0.01em; line-height: 1.08; margin: 0.4rem 0 0.9rem;
+    text-wrap: balance; max-width: 22ch;
   }
-  .lede { color: var(--ink-soft); font-size: 1.05rem; max-width: 36rem; }
-  .fig { margin: 2rem 0; }
-  .fig svg { width: 100%; height: auto; display: block; }
+  h2 {
+    font-family: var(--serif); font-weight: 600; font-size: 1.45rem; letter-spacing: -0.005em;
+    margin: 3rem 0 0.9rem;
+  }
+  .lede { color: var(--ink-soft); font-size: 1.08rem; max-width: 40rem; }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: center; margin: 1.5rem 0 0; }
+  .cta a.primary {
+    background: var(--acc); color: #06201C; border: 0; border-radius: 5px;
+    padding: 0.6rem 1rem; font-family: var(--mono); font-size: 0.85rem; font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .cta a.primary:hover { filter: brightness(1.08); }
+  .cta a.ghost {
+    border: 1px solid var(--line); border-radius: 5px; padding: 0.55rem 0.9rem;
+    font-family: var(--mono); font-size: 0.8rem; color: var(--ink);
+  }
+  .cta a.ghost:hover { border-color: var(--acc); }
+
+  .fig { margin: 2.2rem 0 0.5rem; }
+  .fig svg { width: 100%; height: auto; display: block; max-width: 44rem; }
   .fig text { font-family: var(--mono); }
-  ul.facts { list-style: none; padding: 0; margin: 1.6rem 0; display: grid; gap: 0.6rem; }
-  ul.facts li { padding-left: 1.4rem; position: relative; font-size: 0.98rem; }
+
+  .pillars {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.9rem; margin-top: 1rem;
+  }
+  .pillar {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 1.1rem 1.15rem 1.2rem; display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .pillar .k { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--acc2); }
+  .pillar h3 { font-family: var(--serif); font-weight: 600; font-size: 1.2rem; line-height: 1.2; }
+  .pillar p { color: var(--ink-soft); font-size: 0.93rem; flex: 1; }
+  .pillar .links { font-family: var(--mono); font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; }
+  .pillar .state { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); }
+  .pillar .state b { color: var(--acc); font-weight: 600; }
+  .pillar .state b.warn { color: var(--acc2); }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.9rem; margin-top: 1rem;
+  }
+  .stat { border-top: 2px solid var(--line); padding-top: 0.7rem; }
+  .stat .n { font-family: var(--mono); font-size: 1.7rem; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .n.warn { color: var(--acc2); }
+  .stat .l { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.3rem; }
+  .stat .src { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-soft); margin-top: 0.25rem; opacity: 0.85; }
+
+  ul.facts { list-style: none; padding: 0; margin: 0.6rem 0 0; display: grid; gap: 0.55rem; max-width: 44rem; }
+  ul.facts li { padding-left: 1.4rem; position: relative; font-size: 0.97rem; color: var(--ink-soft); }
+  ul.facts li b { color: var(--ink); font-weight: 600; }
   ul.facts li::before { content: "§"; position: absolute; left: 0; color: var(--acc2); font-family: var(--serif); }
+
   .status {
-    margin-top: 2rem; padding: 0.85rem 1.1rem; border: 1px solid var(--line);
+    margin-top: 2.4rem; padding: 0.95rem 1.1rem; border: 1px solid var(--line);
     border-radius: 4px; background: var(--surface); font-family: var(--mono);
-    font-size: 0.82rem; color: var(--ink-soft);
+    font-size: 0.8rem; color: var(--ink-soft); line-height: 1.55;
   }
   .status b { color: var(--acc); font-weight: 600; }
-  footer { margin-top: 2rem; font-size: 0.8rem; color: var(--ink-soft); }
-  a { color: var(--acc); text-decoration: none; border-bottom: 1px solid var(--line); }
-  a:hover, a:focus-visible { border-bottom-color: var(--acc); outline: none; }
-  code { font-family: var(--mono); font-size: 0.9em; color: var(--acc2); }
+  footer { margin-top: 2.2rem; font-size: 0.8rem; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
 </head>
 <body>
 <main>
   <p class="eyebrow">separatrix</p>
-  <h1>Quantum-inspired Ising/QUBO solvers, in pure Rust.</h1>
-  <p class="lede">Simulated bifurcation — the Toshiba-lineage algorithm family (Goto et&nbsp;al., <i>Science&nbsp;Advances</i> 2019&nbsp;&amp;&nbsp;2021) — implemented faithfully and benchmarked the only honest way: next to simulated annealing, parallel tempering, and exact ground truth in the same crate.</p>
+  <h1>Quantum-inspired optimisation you can check.</h1>
+  <p class="lede">A simulated-bifurcation solver in pure Rust — the Toshiba-lineage algorithm (Goto et&nbsp;al., <i>Science&nbsp;Advances</i> 2019&nbsp;&amp;&nbsp;2021) — benchmarked the only honest way: next to simulated annealing, parallel tempering and <em>exact</em> ground truth. A Solana program re-derives every committed answer on-chain. The same “exactly k of n” constraint is then taken to quantum hardware primitives and measured like a referee would.</p>
+
+  <div class="cta">
+    <a class="primary" href="./demo/">Run it in your browser →</a>
+    <a class="ghost" href="https://github.com/Iamsohungrynow/separatrix">GitHub</a>
+    <a class="ghost" href="https://crates.io/crates/separatrix">crates.io</a>
+    <a class="ghost" href="https://docs.rs/separatrix">docs.rs</a>
+  </div>
 
   <figure class="fig" aria-hidden="true">
-    <svg viewBox="0 0 640 200">
+    <svg viewBox="0 0 664 200">
       <line x1="20" y1="100" x2="230" y2="100" stroke="#E4EAE7" stroke-width="2.5" stroke-linecap="round"/>
       <path d="M 230 100 C 320 100 360 48 570 34" fill="none" stroke="#43BCA9" stroke-width="2.5" stroke-linecap="round"/>
       <path d="M 230 100 C 320 100 360 152 570 166" fill="none" stroke="#D68F52" stroke-width="2.5" stroke-linecap="round"/>
@@ -72,21 +133,54 @@
     </svg>
   </figure>
 
-  <p class="lede" style="margin-top:1.4rem">
-    <a href="./demo/"><strong>Run it in your browser →</strong></a> Pick a universe and a
-    portfolio size, then watch exact enumeration check every possible portfolio while the
-    heuristics guess — until the universe grows and exact stops being reachable at all.
-  </p>
+  <h2>Three pillars, one repository</h2>
+  <div class="pillars">
+    <article class="pillar">
+      <span class="k">01 · solver</span>
+      <h3>Simulated bifurcation, with its baselines in the box</h3>
+      <p>bSB and dSB next to SA, parallel tempering and Gray-code exact enumeration. Deterministic per seed, compiles to <code>wasm32</code>, and scores every solution on a quantized <code>i128</code> objective that anyone can replay.</p>
+      <div class="links"><a href="./demo/">demo</a><a href="https://crates.io/crates/separatrix">crate</a><a href="https://github.com/Iamsohungrynow/separatrix/blob/main/docs/workbench.md">study</a></div>
+      <span class="state"><b>shipped</b> · 0.2.0 in the repo, 0.1.0 on crates.io</span>
+    </article>
+    <article class="pillar">
+      <span class="k">02 · verification</span>
+      <h3>Commit before you execute, let the chain re-score</h3>
+      <p>An Anchor program on Solana devnet seals the coefficients, stores the commitment, and re-derives the revealed allocation’s integer objective itself. Alongside it, <em>leash</em>: a spending firewall an autonomous agent cannot talk its way past.</p>
+      <div class="links"><a href="https://github.com/Iamsohungrynow/separatrix/blob/main/docs/onchain.md">on-chain contract</a><a href="https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet">program</a></div>
+      <span class="state"><b>devnet</b> · measured compute units · <b class="warn">unaudited</b></span>
+    </article>
+    <article class="pillar">
+      <span class="k">03 · quantum</span>
+      <h3>Constraint-preserving primitives on trapped-ion connectivity</h3>
+      <p>Dicke-state preparation plus XY-ring mixers characterised across (n,&nbsp;k) on all-to-all, heavy-hex and linear graphs, with physical ion leakage separated from Hamming-weight loss on Quantinuum’s emulator. A QAOA pipeline for IBM Heron that refuses to overclaim.</p>
+      <div class="links"><a href="https://github.com/Iamsohungrynow/separatrix/blob/main/docs/primitives.md">primitives</a><a href="https://github.com/Iamsohungrynow/separatrix/blob/main/docs/quantum.md">qaoa</a></div>
+      <span class="state"><b>emulated</b> · hardware <b class="warn">NOT RUN</b></span>
+    </article>
+  </div>
 
+  <h2>What the measurements say</h2>
+  <div class="stats">
+    <div class="stat"><div class="n">234 / 234</div><div class="l">rebalances with a <em>proven</em> optimum, up to 61.5M subsets each</div><div class="src">workbench · measured</div></div>
+    <div class="stat"><div class="n">0.031</div><div class="l">median bSB gap along the achievable range — 128× faster than exact, which still wins outright at this size</div><div class="src">workbench · measured</div></div>
+    <div class="stat"><div class="n">1.96×</div><div class="l">heavy-hex routing tax in two-qubit gates versus all-to-all, same passes, same gate set</div><div class="src">selene sweep · measured</div></div>
+    <div class="stat"><div class="n warn">NOT RUN</div><div class="l">every hardware column, on every quantum artifact, until a job actually runs</div><div class="src">honesty contract</div></div>
+  </div>
+
+  <h2>The rules this project holds itself to</h2>
   <ul class="facts">
-    <li>Deterministic per seed, no OS entropy, compiles to <code>wasm32</code>.</li>
-    <li>A quantized <code>i128</code> objective designed for on-chain verification: solving is NP-hard, checking is cheap.</li>
-    <li>Property tests enforce that no heuristic ever reports an energy below the exact ground state.</li>
+    <li><b>Quantum-inspired is a description, not a claim.</b> Simulated bifurcation is a classical Hamiltonian ODE; nothing in the solver touches a qubit.</li>
+    <li><b>Ground truth or nothing.</b> The enumerator refuses instances it cannot finish, and where exact enumeration wins the docs say so.</li>
+    <li><b>The chain checks, it does not trust.</b> The objective the program computed equalled the solver’s integer exactly, or the reveal would have failed.</li>
+    <li><b>Property tests</b> enforce that no heuristic ever reports an energy below the exact ground state.</li>
   </ul>
 
-  <p class="status"><b>status:</b> v0.1 solver core, shipped. So are the other two: the walk-forward workbench (39 assets, K=8, 234 rebalances, exact ground truth on 100% of them — and exact enumeration beats every heuristic at that size), and the Solana commitment program on devnet, where the chain re-derived a committed allocation's objective and got the solver's integer exactly. The workbench study is a report, not a chain record; it is not published on-chain. Still not built, and not claimed: no browser WASM demo, no run on real quantum hardware, no solver bounty.</p>
+  <p class="status"><b>status · 2026-09:</b> solver crate, walk-forward workbench (39 assets, K=8, 234 rebalances, exact ground truth on 100% of them), browser demo, Solana commitment program and the leash firewall on devnet, and a 35-point Dicke/XY characterisation on Quantinuum’s Selene emulator — all shipped and in the repository. The workbench study is a report, not a chain record. Not built, and not claimed: a run on real quantum hardware, a calibrated Helios noise model, a security audit.</p>
 
-  <footer>Simulated bifurcation is a classical algorithm; this project claims no quantum advantage — that honesty is the point. · <code>cargo add separatrix</code></footer>
+  <footer>
+    <span>Built by <a href="https://github.com/Iamsohungrynow">Martina</a> · MIT</span>
+    <span>No quantum advantage is claimed — that honesty is the point.</span>
+    <span><code>cargo add separatrix</code></span>
+  </footer>
 </main>
 </body>
 </html>
