@@ -326,6 +326,104 @@ class ConstructionTestCase(unittest.TestCase):
             dx.dicke_ops(0, 0)
 
 
+def _multi_qubit_ir_gates(ops) -> int:
+    """cx + cnry ops: the IR's multi-qubit gate count, the same for either construction."""
+    return sum(1 for name, _, _ in ops if name in ("cx", "cnry"))
+
+
+class DivideAndConquerConstructionTestCase(unittest.TestCase):
+    """dicke_ops_dc, verified in numpy alone against the analytic |D^n_k>."""
+
+    def test_split_amplitudes_are_the_hypergeometric_law(self) -> None:
+        n, k, m1 = 10, 4, 4
+        split = dx.dc_split_amplitudes(n, k, m1)
+        self.assertEqual([weight for weight, _ in split], list(range(0, 5)))
+        self.assertAlmostEqual(sum(a * a for _, a in split), 1.0, places=12)
+        # k - m2 > 0 truncates the range from below; k > m1 from above.
+        self.assertEqual([weight for weight, _ in dx.dc_split_amplitudes(6, 5, 3)], [2, 3])
+        for weight, a in dx.dc_split_amplitudes(8, 3, 5):
+            expected = math.comb(5, weight) * math.comb(3, 3 - weight) / math.comb(8, 3)
+            self.assertAlmostEqual(a * a, expected, places=12)
+
+    def test_prepares_the_analytic_dicke_state_up_to_n_twelve(self) -> None:
+        for n in range(2, 13):
+            for k in range(1, n):
+                state = dx.simulate(dx.dicke_ops_dc(n, k), n)
+                fidelity = dx.verify_dicke_state(state, n, k)  # raises below 1-1e-9
+                self.assertGreater(fidelity, 1.0 - 1e-12, f"|D^{n}_{k}> fidelity {fidelity}")
+
+    def test_every_cut_position_prepares_the_same_state(self) -> None:
+        """m1 is a free parameter; the recurrence holds for any cut, degenerate ones included."""
+        for n in range(2, 8):
+            for k in range(0, n + 1):
+                for m1 in range(0, n + 1):
+                    state = dx.simulate(dx.dicke_ops_dc(n, k, m1), n)
+                    fidelity = dx.state_fidelity(dx.analytic_dicke_state(n, k), state)
+                    self.assertGreater(fidelity, 1.0 - 1e-12, f"n={n} k={k} m1={m1}")
+
+    def test_trivial_weights_are_product_states(self) -> None:
+        self.assertEqual(dx.dicke_ops_dc(5, 0), [])
+        self.assertEqual(dx.dicke_ops_dc(5, 5), [("x", (), (q,)) for q in range(5)])
+        self.assertEqual(dx.dicke_ops_dc(1, 1), [("x", (), (0,))])
+
+    def test_half_unitary_is_the_scs_cascade_gate_for_gate(self) -> None:
+        """The conquer stage is exactly dicke_ops minus its X layer, translated."""
+        for n, k in ((5, 2), (8, 3), (9, 4)):
+            expected = [op for op in dx.dicke_ops(n, k) if op[0] != "x"]
+            self.assertEqual(dx._scs_unitary_ops(0, n, k), expected)
+            shifted = dx._scs_unitary_ops(3, n, k)
+            self.assertEqual(
+                shifted,
+                [(name, params, tuple(q + 3 for q in qubits)) for name, params, qubits in expected],
+            )
+
+    def test_a_sign_error_in_the_split_angle_is_caught(self) -> None:
+        ops = dx.dicke_ops_dc(8, 3)
+        first_split = next(i for i, op in enumerate(ops) if op[0] == "cnry")
+        name, params, qubits = ops[first_split]
+        ops[first_split] = (name, tuple(-p for p in params), qubits)
+        with self.assertRaises(dx.VerificationError):
+            dx.verify_dicke_state(dx.simulate(ops, 8), 8, 3)
+
+    def test_uses_fewer_multi_qubit_gates_than_scs(self) -> None:
+        for n, k in ((10, 3), (8, 4), (12, 6)):
+            self.assertLess(
+                _multi_qubit_ir_gates(dx.dicke_ops_dc(n, k)),
+                _multi_qubit_ir_gates(dx.dicke_ops(n, k)),
+                f"n={n} k={k}",
+            )
+        # k = 1 is the degenerate case: the split ladder is one gadget and the
+        # halves cost what the whole did, so the count ties (depth still halves).
+        self.assertEqual(
+            _multi_qubit_ir_gates(dx.dicke_ops_dc(10, 1)),
+            _multi_qubit_ir_gates(dx.dicke_ops(10, 1)),
+        )
+
+    def test_xy_mixer_on_the_dc_state_preserves_the_weight_sector(self) -> None:
+        for n, k in ((6, 3), (8, 2), (9, 4)):
+            state = dx.simulate(dx.ansatz_ops(n, k, [0.4, 0.9], construction="dc"), n)
+            population = dx.verify_weight_sector(state, n, k)
+            self.assertGreater(population, 1.0 - dx.DEFAULT_FIDELITY_TOLERANCE)
+
+    def test_dispatcher_defaults_to_scs_and_rejects_unknown_names(self) -> None:
+        self.assertEqual(dx.build_dicke_ops(6, 2), dx.dicke_ops(6, 2))
+        self.assertEqual(dx.build_dicke_ops(6, 2, "dc"), dx.dicke_ops_dc(6, 2))
+        self.assertEqual(dx.ansatz_ops(6, 2, [0.3]), dx.ansatz_ops(6, 2, [0.3], "scs"))
+        with self.assertRaises(ValueError):
+            dx.build_dicke_ops(6, 2, "recursive")
+        self.assertEqual(dx.DICKE_CONSTRUCTIONS, ("scs", "dc"))
+
+    def test_rejects_impossible_parameters(self) -> None:
+        with self.assertRaises(ValueError):
+            dx.dicke_ops_dc(4, 5)
+        with self.assertRaises(ValueError):
+            dx.dicke_ops_dc(0, 0)
+        with self.assertRaises(ValueError):
+            dx.dicke_ops_dc(4, 2, m1=5)
+        with self.assertRaises(ValueError):
+            dx.dc_split_amplitudes(4, 2, 7)
+
+
 class GeneratedHeavyHexTestCase(unittest.TestCase):
     """The fallback coupling graph, used only when no device snapshot is available.
 
@@ -407,6 +505,28 @@ class TketLayerTestCase(unittest.TestCase):
         for n, k in ((4, 2), (6, 2), (8, 3)):
             fidelity = dx.verify_dicke_state(dx.tket_statevector(dx.dicke_circuit(n, k)), n, k)
             self.assertGreater(fidelity, 1.0 - dx.DEFAULT_FIDELITY_TOLERANCE)
+
+    def test_pytket_dc_circuit_matches_the_reference_simulator(self) -> None:
+        """Same half-turn boundary, second construction: nothing new to get wrong, checked anyway."""
+        for n, k in ((4, 2), (6, 3), (7, 3)):
+            circuit = dx.ansatz_circuit(n, k, [0.4, 0.9], construction="dc")
+            produced = dx.tket_statevector(circuit)
+            reference = dx.simulate(dx.ansatz_ops(n, k, [0.4, 0.9], construction="dc"), n)
+            self.assertGreater(dx.state_fidelity(reference, produced), 1.0 - 1e-12)
+            fidelity = dx.verify_dicke_state(
+                dx.tket_statevector(dx.dicke_circuit(n, k, construction="dc")), n, k
+            )
+            self.assertGreater(fidelity, 1.0 - dx.DEFAULT_FIDELITY_TOLERANCE)
+
+    def test_dc_compiles_to_fewer_two_qubit_gates_and_shallower_depth_than_scs(self) -> None:
+        n, k = 8, 3
+        arch = dx.all_to_all_architecture(n)
+        scs = dx.circuit_stats(dx.compile_for_architecture(dx.dicke_circuit(n, k), arch))
+        dc = dx.circuit_stats(
+            dx.compile_for_architecture(dx.dicke_circuit(n, k, construction="dc"), arch)
+        )
+        self.assertLess(dc["two_qubit_gates"], scs["two_qubit_gates"])
+        self.assertLess(dc["two_qubit_depth"], scs["two_qubit_depth"])
 
     def test_compilation_preserves_the_weight_sector_on_every_architecture(self) -> None:
         n, k = 6, 2
