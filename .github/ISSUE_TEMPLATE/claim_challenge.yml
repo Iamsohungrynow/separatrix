@@ -1,0 +1,48 @@
+name: Claim challenge
+description: Challenge a number or a statement in the README, the docs, or a report
+title: "claim: "
+labels: ["claim"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project would rather correct a claim than defend it. If a number, a label ("measured", "estimated", "NOT RUN"), or a sentence in the README, `docs/`, or `reports/` says more than the evidence supports, or you cannot reproduce it, this is the place.
+        You do not need to be certain. A reproduction that came out differently is enough to open the question.
+  - type: input
+    id: location
+    attributes:
+      label: Where the claim is
+      description: File and line, or the report path. A permalink to the line on GitHub is ideal.
+      placeholder: docs/onchain.md line 430, or reports/examples/<name>.json
+    validations:
+      required: true
+  - type: textarea
+    id: claim
+    attributes:
+      label: The claim, quoted
+      description: Paste the exact text or number as it appears. Do not paraphrase.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it may be wrong or overstated
+      description: What makes you doubt it? A different result, a missing label, a comparison against the wrong baseline, a claim that reads as stronger than the artifact behind it, or a term (for example "advantage" or "verified") used more broadly than the evidence allows.
+    validations:
+      required: true
+  - type: textarea
+    id: what-you-ran
+    attributes:
+      label: What you ran
+      description: The exact command(s), the commit you ran them at, and the environment (OS, versions, venv). If you did not run anything, say so; the challenge is still welcome.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: what-you-got
+    attributes:
+      label: What you got
+      description: The output, the number, or the artifact you obtained, next to the value that was claimed. Attach or link the artifact if it is large.
+    validations:
+      required: true

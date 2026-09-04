@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # Cargo: the solver crate's own workspace ONLY.
+  #
+  # The repo-root cargo workspace (programs/leash, programs/separatrix) is built
+  # by the Solana 1.18 SBF toolchain. Its cargo 1.75 reads lockfile v3 only, and
+  # its rustc 1.75 needs the dependency pins in programs/*/Cargo.toml exactly as
+  # they are. A modern cargo touching that workspace rewrites Cargo.lock to v4
+  # and breaks the SBF build; a version bump there is a hand-made, hand-verified
+  # change (`npm run check:sbf-lockfile`). Dependabot must never be pointed at
+  # "/" for cargo. Do not add a second cargo entry for the root.
+  - package-ecosystem: cargo
+    directory: /separatrix
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # npm: the TypeScript bridge, Anchor test tooling, and type-check.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # pip: the requirements*.txt files at the root. requirements-quantinuum.txt
+  # carries exact pins that were installed and exercised by hand; a bump there
+  # must be re-verified in the dedicated .venv-quantinuum before merging.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      pip-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

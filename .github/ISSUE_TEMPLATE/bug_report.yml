@@ -1,0 +1,75 @@
+name: Bug report
+description: Something does not work the way the code or the docs say it does
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The more precisely you can reproduce it, the faster it gets fixed.
+        If the problem is a number or a claim in the docs rather than a defect in the code, use the "Claim challenge" template instead.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the repository is affected?
+      options:
+        - Solver crate (`separatrix/`)
+        - Browser demo (`site/demo`)
+        - Workbench (`agent/workbench`)
+        - Leash program / bridge
+        - Separatrix program / bridge
+        - Demo agent / API
+        - Dashboards
+        - Quantum primitives (`quantum/`, `scripts/heron_qaoa.py`)
+        - Docs
+        - CI / tooling
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include the exact error text if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened instead, and which doc or code comment says so (if any)?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The command you ran and the input it needed (file path, JSON, instance parameters, seed). Smaller is better.
+      placeholder: |
+        cd separatrix
+        cargo test --workspace -- pt_exchange
+        # input: separatrix/tests/fixtures/... or an inline JSON snippet
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and version; Python, Rust, and Node versions as relevant; which virtualenv (`.venv`, `.venv-quantinuum`, other); toolchain versions for Solana or Anchor work.
+      placeholder: |
+        OS: Windows 11 / Ubuntu 24.04 / macOS 15
+        Python: 3.12.x (venv: .venv)
+        Rust: rustc 1.xx.x (stable)
+        Node: 20.x
+        Solana / Anchor: 1.18.x / 0.30.1 (if relevant)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Paste the relevant output. Trim it to the part that matters, and remove anything that looks like a key, token, or seed phrase.
+      render: shell
+    validations:
+      required: false
