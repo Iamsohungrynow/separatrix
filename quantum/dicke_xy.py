@@ -6,7 +6,10 @@ refuses to hand back either of them unverified:
 
 1. **|D^n_k>**, the equal superposition over all C(n,k) Hamming-weight-k
    bitstrings, via the Baertschi-Eidenbenz split-and-cyclic-shift (SCS)
-   construction, arXiv:1904.07358 (FCT 2019).
+   construction, arXiv:1904.07358 (FCT 2019) — the default — or, on request,
+   one level of the divide-and-conquer construction of Aktar et al.,
+   arXiv:2112.12435 (:func:`dicke_ops_dc`), which splits the weight across
+   two halves and prepares them in parallel.
 2. The **XY-ring mixer**, exp(-i beta (XX+YY)/2) on each edge of a ring,
    split into two commuting colour classes. It commutes with the total number
    operator, so a state that starts inside the weight-k sector stays there.
@@ -67,6 +70,10 @@ __all__ = [
     "HeliosSpec",
     "GateOp",
     "dicke_ops",
+    "dicke_ops_dc",
+    "build_dicke_ops",
+    "DICKE_CONSTRUCTIONS",
+    "dc_split_amplitudes",
     "xy_ring_mixer_ops",
     "ansatz_ops",
     "ring_edges",
@@ -193,6 +200,167 @@ def dicke_ops(n: int, k: int) -> list[GateOp]:
     return ops
 
 
+#: The Dicke constructions this module can build. ``scs`` is the default
+#: everywhere and is what every committed report was produced with.
+DICKE_CONSTRUCTIONS = ("scs", "dc")
+
+
+def _scs_unitary_ops(base: int, width: int, k_max: int) -> list[GateOp]:
+    """The Baertschi-Eidenbenz Dicke unitary U_{width,k_max} on ``base..base+width-1``.
+
+    Exactly the gadget cascade of :func:`dicke_ops` (same ordering, same
+    ``n - k`` offsets, same negated angle), minus the X layer, translated by
+    ``base``. Its load-bearing property is that it maps the *unary* input
+    |0^{width-l} 1^l> (ones on the top ``l`` qubits of the block) to |D^width_l>
+    for **every** l <= k_max at once, which is what lets it act on a
+    superposition of weights. A test pins it gate-for-gate to ``dicke_ops``.
+    """
+    ops: list[GateOp] = []
+    for w in range(width, 1, -1):
+        for i in range(1, min(k_max, w - 1) + 1):
+            theta = -2.0 * math.acos(math.sqrt(i / w))
+            top = base + w - 1
+            low = top - i
+            ops.append(("cx", (), (top, low)))
+            if i == 1:
+                ops.append(("cnry", (theta,), (low, top)))
+            else:
+                ops.append(("cnry", (theta,), (low, base + w - i, top)))
+            ops.append(("cx", (), (top, low)))
+    return ops
+
+
+def dc_split_amplitudes(n: int, k: int, m1: int) -> list[tuple[int, float]]:
+    """Hypergeometric weight split of |D^n_k> across a (m1, n - m1) cut.
+
+    |D^n_k> = sum_l a_l |D^{m1}_l> (x) |D^{n-m1}_{k-l}>, with
+    ``a_l = sqrt( C(m1,l) C(n-m1,k-l) / C(n,k) )`` over the feasible range
+    ``max(0, k-(n-m1)) <= l <= min(k, m1)``. Returned as ``(l, a_l)`` pairs in
+    increasing ``l``; the squares sum to one (Vandermonde). Computed in exact
+    integer arithmetic before the single square root.
+    """
+    if n < 1 or not 0 <= k <= n or not 0 <= m1 <= n:
+        raise ValueError(
+            f"need 1 <= n, 0 <= k <= n, 0 <= m1 <= n; got n={n}, k={k}, m1={m1}"
+        )
+    m2 = n - m1
+    total = math.comb(n, k)
+    out: list[tuple[int, float]] = []
+    for weight in range(max(0, k - m2), min(k, m1) + 1):
+        out.append(
+            (weight, math.sqrt(math.comb(m1, weight) * math.comb(m2, k - weight) / total))
+        )
+    return out
+
+
+def dicke_ops_dc(n: int, k: int, m1: int | None = None) -> list[GateOp]:
+    r"""One level of divide-and-conquer Dicke preparation, as IR ops.
+
+    Provenance: Aktar, Baertschi, Badawy & Eidenbenz, *A Divide-and-Conquer
+    Approach to Dicke State Preparation*, arXiv:2112.12435 (IEEE TQE 2022),
+    the construction behind the H1-2 circuits of arXiv:2210.03048 whose CNOT
+    counts ``quantum/characterise.py`` compares against. It rests on the
+    binomial recurrence
+
+        |D^n_k> = sum_l sqrt( C(m1,l) C(m2,k-l) / C(n,k) ) |D^{m1}_l> (x) |D^{m2}_{k-l}>,
+
+    ``m1 + m2 = n``, ``l`` over ``max(0, k-m2) .. min(k, m1)`` (the
+    hypergeometric split; see :func:`dc_split_amplitudes`). The circuit has
+    two stages:
+
+    1. **Weight distribution.** From the unary input |0^{n-k} 1^k> (X on the
+       top ``k`` qubits, the same convention as :func:`dicke_ops`), a ladder
+       of ``J = min(k,m1) - max(0,k-m2)`` split gadgets moves ones from the
+       *bottom* of the block, which sits in the upper half, to the *top* of
+       the lower half, in superposition. Step ``j`` is the same
+       CX-CnRy-CX Givens gadget the SCS cascade uses, controlled on the
+       previous step's target so both halves fill contiguously, with the
+       "stay" amplitude ``c_j = sqrt(P(l = l_min+j-1) / P(l >= l_min+j-1))``
+       and hence ``theta_j = -2 arccos(c_j)`` — the conditional
+       hypergeometric probability that no further one crosses the cut. After
+       the ladder each branch is a product of two *unary* states,
+       |0^{m1-l} 1^l> (x) |0^{m2-(k-l)} 1^{k-l}>.
+    2. **Conquer.** The Dicke unitaries U_{m1,min(k,m1)} and
+       U_{m2,min(k,m2)} of the 2019 construction act on the two halves in
+       parallel (:func:`_scs_unitary_ops`). Each maps every unary weight it
+       can meet to the matching Dicke state, so the superposition of unary
+       pairs becomes the superposition of Dicke pairs above.
+
+    Cost: the two half-cascades together are ~O(kn) gates like the SCS
+    cascade but run concurrently, so depth roughly halves; the ladder adds
+    ``J`` gadgets. This is **one** level of recursion — the halves use the
+    LNN-optimal 2019 unitary. It is *not* the fully recursive
+    O(k log(n/k))-depth all-to-all construction of arXiv:2207.09998, whose
+    weight-distribution block must work for every input weight at once;
+    that remains unbuilt and unmeasured.
+
+    Conventions are those of :func:`dicke_ops`: angles in radians, big-endian
+    qubit order, ``cnry`` controls first and target last. ``m1`` (the size of
+    the lower half) defaults to ``n // 2``. A circuit from this function is no
+    more trusted than one from any other until :func:`verify_dicke_state` has
+    run on it; the tests do that for every (n, k) up to n = 12.
+    """
+    if n < 1:
+        raise ValueError(f"n must be >= 1, got {n}")
+    if not 0 <= k <= n:
+        raise ValueError(f"need 0 <= k <= n, got k={k}, n={n}")
+    if m1 is None:
+        m1 = n // 2
+    if not 0 <= m1 <= n:
+        raise ValueError(f"need 0 <= m1 <= n, got m1={m1}, n={n}")
+    m2 = n - m1
+
+    ops: list[GateOp] = []
+    for q in range(n - k, n):
+        ops.append(("x", (), (q,)))
+    if k == 0 or k == n or m1 == 0 or m2 == 0:
+        # Nothing to split: |0^n>, |1^n>, or a degenerate cut. For a degenerate
+        # cut the whole-register SCS cascade is the honest fallback.
+        if 0 < k < n:
+            ops.extend(_scs_unitary_ops(0, n, k))
+        return ops
+
+    split = dc_split_amplitudes(n, k, m1)
+    probabilities = {weight: a * a for weight, a in split}
+    l_min = split[0][0]
+    l_max = split[-1][0]
+    # Ones initially in the upper half: k - l_min = min(k, m2), on the top
+    # qubits n-(k-l_min)..n-1. The lower half already holds l_min of them.
+    block_bottom = n - (k - l_min)
+    tail = sum(probabilities.values())  # P(l >= l_min), which is 1
+    for j in range(1, l_max - l_min + 1):
+        # P(l = l_min+j-1 | l >= l_min+j-1): the amplitude^2 for the one at
+        # the bottom of the block to stay where it is.
+        stay = probabilities[l_min + j - 1] / tail
+        stay = min(1.0, max(0.0, stay))
+        theta = -2.0 * math.acos(math.sqrt(stay))
+        source = block_bottom + j - 1  # bottom of the upper half's block
+        target = m1 - l_min - j  # next free slot at the top of the lower half
+        ops.append(("cx", (), (source, target)))
+        if j == 1:
+            ops.append(("cnry", (theta,), (target, source)))
+        else:
+            previous = m1 - l_min - (j - 1)
+            ops.append(("cnry", (theta,), (target, previous, source)))
+        ops.append(("cx", (), (source, target)))
+        tail -= probabilities[l_min + j - 1]
+
+    ops.extend(_scs_unitary_ops(0, m1, l_max))
+    ops.extend(_scs_unitary_ops(m1, m2, k - l_min))
+    return ops
+
+
+def build_dicke_ops(n: int, k: int, construction: str = "scs") -> list[GateOp]:
+    """Dispatch on the construction name: ``scs`` (default) or ``dc``."""
+    if construction == "scs":
+        return dicke_ops(n, k)
+    if construction == "dc":
+        return dicke_ops_dc(n, k)
+    raise ValueError(
+        f"unknown Dicke construction {construction!r}; choose from {DICKE_CONSTRUCTIONS}"
+    )
+
+
 def ring_edges(n: int) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """Ring edges split into two colour classes (exact split when n is even).
 
@@ -224,15 +392,20 @@ def xy_ring_mixer_ops(n: int, beta: float) -> list[GateOp]:
     return ops
 
 
-def ansatz_ops(n: int, k: int, betas: Sequence[float]) -> list[GateOp]:
+def ansatz_ops(
+    n: int, k: int, betas: Sequence[float], construction: str = "scs"
+) -> list[GateOp]:
     """Dicke preparation followed by ``len(betas)`` XY-ring mixer layers.
 
     This is deliberately the *bare* constraint-preserving ansatz: no cost
     layer, no problem instance. The cost layer is instance-specific and would
     make the measurement a statement about a portfolio rather than about a
     primitive. ``scripts/heron_qaoa.py`` is where the instance lives.
+
+    ``construction`` selects the Dicke circuit (see
+    :data:`DICKE_CONSTRUCTIONS`); the mixer is the same either way.
     """
-    ops = dicke_ops(n, k)
+    ops = build_dicke_ops(n, k, construction)
     for beta in betas:
         ops.extend(xy_ring_mixer_ops(n, float(beta)))
     return ops
@@ -597,14 +770,14 @@ def ops_to_tket(ops: Sequence[GateOp], n: int):
     return circuit
 
 
-def dicke_circuit(n: int, k: int):
+def dicke_circuit(n: int, k: int, construction: str = "scs"):
     """|D^n_k> as a pytket Circuit. Unverified until you call verify_dicke_state."""
-    return ops_to_tket(dicke_ops(n, k), n)
+    return ops_to_tket(build_dicke_ops(n, k, construction), n)
 
 
-def ansatz_circuit(n: int, k: int, betas: Sequence[float]):
+def ansatz_circuit(n: int, k: int, betas: Sequence[float], construction: str = "scs"):
     """Dicke preparation + XY-ring mixer layers as a pytket Circuit."""
-    return ops_to_tket(ansatz_ops(n, k, betas), n)
+    return ops_to_tket(ansatz_ops(n, k, betas, construction), n)
 
 
 def tket_statevector(circuit, max_native_qubits: int = 11) -> np.ndarray:

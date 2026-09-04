@@ -149,10 +149,12 @@ def measure_point(
         "k": k,
         "feasible_bitstrings": math.comb(n, k),
         "mixer_layers": len(betas),
+        "construction": getattr(args, "construction", "scs"),
     }
 
-    logical_dicke = dx.dicke_circuit(n, k)
-    logical_ansatz = dx.ansatz_circuit(n, k, betas)
+    construction = getattr(args, "construction", "scs")
+    logical_dicke = dx.dicke_circuit(n, k, construction=construction)
+    logical_ansatz = dx.ansatz_circuit(n, k, betas, construction=construction)
     record["logical"] = {
         "dicke": dx.circuit_stats(logical_dicke),
         "ansatz": dx.circuit_stats(logical_ansatz),
@@ -398,6 +400,71 @@ def summarise(points: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+#: How each construction is described wherever the report names it. The
+#: default (``scs``) wording is unchanged from the committed report.
+CONSTRUCTION_NOTES: dict[str, dict[str, str]] = {
+    "scs": {
+        "short": "2019 SCS cascade, LNN-optimal",
+        "method": "Baertschi-Eidenbenz SCS Dicke preparation",
+        "arxiv": "arXiv:1904.07358",
+        "paragraph": (
+            "The construction implemented is the **2019 LNN-optimal** one, O(n) depth "
+            "and O(kn) gates with no ancillas. For all-to-all hardware it is known "
+            "not to be depth-optimal — the O(k log(n/k)) construction of "
+            "arXiv:2207.09998 is — and the `linear` arm below is the control that "
+            "shows what that construction was designed for."
+        ),
+        "prior_art": (
+            "Read this as a measurement of the *construction*, not of the compiler. "
+            "The circuit here is the 2019 SCS construction, which is optimal for a "
+            "line; theirs is the divide-and-conquer construction, which cuts the "
+            "constants by roughly 30%. Where the ratio exceeds 1 that is the price "
+            "of running an LNN-optimal construction on all-to-all hardware, and it "
+            "is the strongest argument in this run for implementing the "
+            "all-to-all-optimal construction of arXiv:2207.09998 next."
+        ),
+        "limit": (
+            "The implemented Dicke construction is the 2019 LNN-optimal one. The "
+            "all-to-all-optimal constructions (arXiv:2207.09998, arXiv:2505.15413) "
+            "are NOT implemented and NOT measured here."
+        ),
+    },
+    "dc": {
+        "short": "one level of divide-and-conquer, Aktar et al.",
+        "method": "one level of divide-and-conquer Dicke preparation",
+        "arxiv": "arXiv:2112.12435, halves via the SCS unitary of arXiv:1904.07358",
+        "paragraph": (
+            "The construction implemented is **one level of divide-and-conquer** "
+            "(Aktar, Baertschi, Badawy & Eidenbenz, arXiv:2112.12435): the weight is "
+            "split across a half/half cut with hypergeometric amplitudes, then each "
+            "half is prepared by the 2019 SCS Dicke unitary, the two halves in "
+            "parallel. It has fewer gates and roughly half the depth of the plain "
+            "SCS cascade but is still O(n) deep; it is *not* the fully recursive "
+            "O(k log(n/k)) all-to-all construction of arXiv:2207.09998."
+        ),
+        "prior_art": (
+            "Read this as a measurement of the *construction* as compiled here, not "
+            "of the compiler. The circuit is the same divide-and-conquer structure "
+            "as theirs, so a ratio well above 1 measures the cost of this IR's "
+            "generic CX-CnRy-CX gadgets and pytket's decomposition of them against "
+            "their hand-optimised two- and three-qubit gate implementations, not "
+            "a difference in the construction."
+        ),
+        "limit": (
+            "The implemented Dicke construction is one level of divide-and-conquer "
+            "with the 2019 SCS unitary on each half. The fully recursive "
+            "all-to-all-optimal constructions (arXiv:2207.09998, arXiv:2505.15413) "
+            "are NOT implemented and NOT measured here."
+        ),
+    },
+}
+
+
+def construction_of(payload: dict[str, Any]) -> str:
+    """The construction a result was produced with; older results predate the key."""
+    return str(payload.get("config", {}).get("construction", "scs"))
+
+
 def limits_for(payload: dict[str, Any]) -> list[str]:
     """The caveats, derived from the run's own configuration.
 
@@ -419,9 +486,7 @@ def limits_for(payload: dict[str, Any]) -> list[str]:
         "than predicting the device.",
         "Single deterministic compilation per arm; no transpiler-seed "
         "distribution. The heavy-hex multiplier is therefore a point estimate.",
-        "The implemented Dicke construction is the 2019 LNN-optimal one. The "
-        "all-to-all-optimal constructions (arXiv:2207.09998, arXiv:2505.15413) "
-        "are NOT implemented and NOT measured here.",
+        CONSTRUCTION_NOTES[construction_of(payload)]["limit"],
         "The emulated circuits reach Selene through a generated Guppy program, "
         "not through pytket's QIR export, which Selene's validator rejects. The "
         "emitter is checked statistically per point rather than proved.",
@@ -440,10 +505,13 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
 
     a(f"# Constraint-preserving ansaetze on all-to-all connectivity — run {payload['run_id']}")
     a("")
+    construction = construction_of(payload)
+    notes = CONSTRUCTION_NOTES[construction]
     a(
         f"Generated {payload['generated_at']} · pytket {versions.get('pytket')} · "
         f"selene-sim {versions.get('selene-sim')} · guppylang {versions.get('guppylang')} · "
-        f"qiskit {versions.get('qiskit')}"
+        f"qiskit {versions.get('qiskit')} · Dicke construction: `{construction}` "
+        f"({notes['short']})"
     )
     a("")
     a("## What this is, and what it is not")
@@ -529,8 +597,8 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
     a("## Method")
     a("")
     a(
-        "The same logical circuit — Baertschi-Eidenbenz SCS Dicke preparation "
-        f"(arXiv:1904.07358) followed by {payload['config']['mixer_layers']} "
+        f"The same logical circuit — {notes['method']} "
+        f"({notes['arxiv']}) followed by {payload['config']['mixer_layers']} "
         "XY-ring mixer layer(s) — is compiled three times with an **identical** "
         "pass sequence (`FullPeepholeOptimise` -> `DefaultMappingPass` -> "
         "`AutoRebase` to {PhasedX, Rz, ZZPhase} -> `RemoveRedundancies`) and an "
@@ -550,13 +618,7 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
         "is run at this beta rather than assumed."
     )
     a("")
-    a(
-        "The construction implemented is the **2019 LNN-optimal** one, O(n) depth "
-        "and O(kn) gates with no ancillas. For all-to-all hardware it is known "
-        "not to be depth-optimal — the O(k log(n/k)) construction of "
-        "arXiv:2207.09998 is — and the `linear` arm below is the control that "
-        "shows what that construction was designed for."
-    )
+    a(notes["paragraph"])
     a("")
 
     a("## 1. Verification (measured)")
@@ -682,15 +744,7 @@ def write_report(path: Path, payload: dict[str, Any]) -> None:
             f"{_fmt(stats['ratio_vs_aktar_2024'], 2) if reference else 'n/a'} |"
         )
     a("")
-    a(
-        "Read this as a measurement of the *construction*, not of the compiler. "
-        "The circuit here is the 2019 SCS construction, which is optimal for a "
-        "line; theirs is the divide-and-conquer construction, which cuts the "
-        "constants by roughly 30%. Where the ratio exceeds 1 that is the price "
-        "of running an LNN-optimal construction on all-to-all hardware, and it "
-        "is the strongest argument in this run for implementing the "
-        "all-to-all-optimal construction of arXiv:2207.09998 next."
-    )
+    a(notes["prior_art"])
     a("")
 
     a("## 3. In-constraint probability under noise")
@@ -907,6 +961,12 @@ def build_parser() -> argparse.ArgumentParser:
     grid.add_argument("--k", type=int, nargs="*", default=None, help="for --k-mode fixed")
     grid.add_argument("--p", type=int, default=1, help="XY-ring mixer layers")
     grid.add_argument(
+        "--construction", choices=dx.DICKE_CONSTRUCTIONS, default="scs",
+        help="Dicke preparation circuit: the 2019 SCS cascade (scs, the default "
+             "and what the committed report used) or one level of "
+             "divide-and-conquer (dc)",
+    )
+    grid.add_argument(
         "--beta", type=float, default=0.4,
         help="mixer angle in radians; the ansatz is instance-free, so this is a "
              "representative non-trivial angle, not an optimised one",
@@ -1012,6 +1072,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "config": {
             "grid": [list(point) for point in grid],
             "mixer_layers": args.p,
+            "construction": args.construction,
             "beta_radians": args.beta,
             "shots": args.shots,
             "seed": args.seed,

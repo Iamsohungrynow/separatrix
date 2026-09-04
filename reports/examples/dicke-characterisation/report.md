@@ -1,6 +1,6 @@
 # Constraint-preserving ansaetze on all-to-all connectivity — run 20260817-090743
 
-Generated 2026-08-17T09:26:03+00:00 · pytket 2.18.1 · selene-sim 0.3.0 · guppylang 1.0.1 · qiskit 2.5.2
+Generated 2026-08-17T09:26:03+00:00 · pytket 2.18.1 · selene-sim 0.3.0 · guppylang 1.0.1 · qiskit 2.5.2 · Dicke construction: `scs` (2019 SCS cascade, LNN-optimal)
 
 ## What this is, and what it is not
 
