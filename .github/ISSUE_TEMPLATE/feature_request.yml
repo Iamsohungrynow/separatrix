@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a change or an addition
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `CONTRIBUTING.md` for what kinds of contributions are wanted. Proposals that come with a plan for how the result will be measured are much easier to say yes to.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the repository would this touch?
+      options:
+        - Solver crate (`separatrix/`)
+        - Browser demo (`site/demo`)
+        - Workbench (`agent/workbench`)
+        - Leash program / bridge
+        - Separatrix program / bridge
+        - Demo agent / API
+        - Dashboards
+        - Quantum primitives (`quantum/`, `scripts/heron_qaoa.py`)
+        - Docs
+        - CI / tooling
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing, wrong, or harder than it should be today? Point at the file, doc, or workflow where you hit it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What would you change, and what would it look like when done? Sketch the interface, the algorithm, or the doc section. Mention anything it would break or any invariant in `CONTRIBUTING.md` it touches (lockfile, IDL generators, commitment preimages).
+    validations:
+      required: true
+  - type: textarea
+    id: honesty-check
+    attributes:
+      label: Honesty check
+      description: What evidence would this need before it can be claimed in the docs? Name the measurement, the baseline it is compared against, and the ground truth. If the answer is "none, it is a refactor", say that.
+      placeholder: |
+        e.g. gap_norm against exact enumeration on the same 234 rebalances, or measured compute units on devnet with the transaction signature, or a fidelity check against the analytic Dicke state on a noiseless statevector.
+    validations:
+      required: true

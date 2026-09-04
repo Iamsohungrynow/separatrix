@@ -1,0 +1,11 @@
+# Normalise line endings: the index is LF-only and CI runs on Linux.
+* text=auto eol=lf
+
+# Binary and generated artefacts.
+*.png binary
+*.wasm binary
+*.db binary
+site/demo/pkg/* linguist-generated
+idl/*.json linguist-generated
+dashboard/vendor/* linguist-vendored
+dashboard/workbench-report.json linguist-generated

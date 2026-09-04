@@ -1,0 +1,85 @@
+# Citation metadata (Citation File Format 1.2.0). GitHub renders this as a
+# "Cite this repository" button. Update `version` and `date-released` when
+# tagging a release.
+cff-version: 1.2.0
+message: "If you use Separatrix in research, please cite it as below."
+type: software
+title: "Separatrix: quantum-inspired portfolio optimisation with exact ground truth, on-chain commitments, and quantum-primitive characterisation"
+abstract: >-
+  A pure-Rust simulated-bifurcation Ising/QUBO solver benchmarked against
+  simulated annealing, parallel tempering, and exhaustive enumeration on a
+  cardinality-constrained crypto portfolio study; a Solana program that
+  commits and re-derives allocation objectives on-chain; a spending firewall
+  for autonomous agents; and a characterisation of Dicke-state preparation
+  with XY-ring mixers on all-to-all trapped-ion connectivity. Every reported
+  number is labelled measured, estimated, or not run. No quantum advantage is
+  claimed.
+authors:
+  - given-names: Martina
+    alias: Iamsohungrynow
+version: 0.2.0
+date-released: "2026-09-04"
+license: MIT
+repository-code: "https://github.com/Iamsohungrynow/separatrix"
+url: "https://separatrix.vercel.app"
+keywords:
+  - simulated bifurcation
+  - Ising model
+  - QUBO
+  - portfolio optimisation
+  - Solana
+  - Dicke states
+  - QAOA
+  - quantum-inspired optimisation
+references:
+  - type: article
+    title: "Combinatorial optimization by simulating adiabatic bifurcations in nonlinear Hamiltonian systems"
+    authors:
+      - family-names: Goto
+        given-names: Hayato
+      - family-names: Tatsumura
+        given-names: Kosuke
+      - family-names: Dixon
+        given-names: Alexander R.
+    journal: "Science Advances"
+    volume: 5
+    issue: 4
+    year: 2019
+    doi: 10.1126/sciadv.aav2372
+  - type: article
+    title: "High-performance combinatorial optimization based on classical mechanics"
+    authors:
+      - family-names: Goto
+        given-names: Hayato
+      - family-names: Endo
+        given-names: Kotaro
+      - family-names: Suzuki
+        given-names: Masaru
+      - family-names: Sakai
+        given-names: Yoshisato
+      - family-names: Kanao
+        given-names: Taro
+      - family-names: Hamakawa
+        given-names: Yohei
+      - family-names: Hidaka
+        given-names: Ryo
+      - family-names: Yamasaki
+        given-names: Masaya
+      - family-names: Tatsumura
+        given-names: Kosuke
+    journal: "Science Advances"
+    volume: 7
+    issue: 6
+    year: 2021
+    doi: 10.1126/sciadv.abe7953
+  - type: article
+    title: "Deterministic preparation of Dicke states"
+    authors:
+      - family-names: "Bärtschi"
+        given-names: Andreas
+      - family-names: Eidenbenz
+        given-names: Stephan
+    year: 2019
+    identifiers:
+      - type: other
+        value: "arXiv:1904.07358"
