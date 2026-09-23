@@ -4,7 +4,7 @@ Thanks for looking. This repository holds three pillars that share one history:
 
 1. `separatrix/` is a pure-Rust simulated-bifurcation Ising/QUBO solver with its classical
    baselines (simulated annealing, parallel tempering, exact enumeration), published on
-   crates.io as `separatrix`, plus a browser WASM demo in `site/demo`.
+   crates.io as `separatrix`, plus Separatrix Studio, the browser app in `site/`.
 2. `programs/` holds two Solana/Anchor programs on devnet: `leash` (spending guardrails for
    agents) and `separatrix` (commit-before-execution and on-chain re-scoring of allocations),
    with their TypeScript bridges under `scripts/`.
@@ -84,9 +84,19 @@ rustup target add wasm32-unknown-unknown
 
 Run cargo from inside `separatrix/` (or pass `--manifest-path separatrix/Cargo.toml`), never
 from the repo root; see the lockfile invariant below. Rebuilding the browser demo after a
-solver change also needs `wasm-bindgen-cli`: `scripts/build-wasm-demo.sh` (bash) regenerates
-`site/demo/pkg`, and the generated files are committed so the site deploys without a wasm
-toolchain.
+solver change also needs `wasm-bindgen-cli` 0.2.127: `scripts/build-wasm-demo.sh` (bash)
+regenerates `site/public/pkg`, and the generated files are committed so the site deploys
+without a wasm toolchain.
+
+### Separatrix Studio (`site/`)
+
+Vite + React + TypeScript, Node 24, its own `package.json`: `npm ci`, then `npm run dev`,
+`npm test` and `npm run build`. The problem library (`src/problems/`) and the Dicke engine
+(`src/quantum/`) are plain TypeScript with vitest suites; keep new logic there, tested, and
+keep components thin. The Dicke engine is pinned gate-for-gate to `quantum/dicke_xy.py` by a
+committed fixture (`src/quantum/__fixtures__/dicke_ops.json`); if you change the Python
+construction, regenerate the fixture. Good first contributions: a new problem type (graph
+colouring, knapsack, TSP) as a `ProblemDef` with a brute-force test, or a new export format.
 
 ### Solana / Anchor (repo root workspace)
 
@@ -120,7 +130,7 @@ you, and the PR template asks which rows you ran.
 | --- | --- |
 | Python (agent, workbench, quantum, tests) | `python -m unittest discover -s tests -v` and `ruff check agent quantum scripts tests` |
 | Solver crate (run inside `separatrix/`) | `cargo fmt --all -- --check`, `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo check --no-default-features --target wasm32-unknown-unknown`, `cargo doc --no-deps -p separatrix` with `RUSTDOCFLAGS=-D warnings` |
-| Browser demo | `scripts/build-wasm-demo.sh`, then commit the regenerated `site/demo/pkg` |
+| Studio (`site/`) | `npm ci`, `npm test`, `npm run build`; after a crate change, `scripts/build-wasm-demo.sh` and commit `site/public/pkg` |
 | TypeScript bridge and Anchor tests | `npm ci`, `npm run lint:ts`; `npm run test:anchor` against a local validator |
 | SBF lockfile guard | `npm run check:sbf-lockfile` |
 | IDLs and encoders | `npm run gen:idl`, `npm run gen:idl:separatrix`, `npm run verify:owner-ix`, `npm run verify:separatrix-idl` |

@@ -13,9 +13,53 @@ Two things are versioned separately from this file:
 
 ## [Unreleased]
 
+### Separatrix Studio (2026-09-22)
+
+#### Added
+
+- `site/` is rebuilt as **Separatrix Studio**, a Vite + React + TypeScript app that
+  replaces the static landing page and the single-purpose `/demo` page (old links
+  redirect to `/solve/portfolio`).
+  - **Solver**: Max-Cut, number partitioning, maximum independent set, cardinality-
+    constrained portfolio selection and a paste-your-own-QUBO mode (JSON, dimod JSON,
+    Python `Q` dict, dense matrix, edge list). All four heuristics stream their results
+    from a worker, exact enumeration proves the optimum where affordable, and the page
+    says plainly when it isn't. Includes a bifurcation replay synced to the problem
+    picture, QUBO export (dimod JSON, CPLEX LP, D-Wave Ocean, Qiskit Optimization, Rust)
+    and compressed share links.
+  - **Dicke circuit builder**: a TypeScript port of `quantum/dicke_xy.py` (SCS and
+    one-level DC), pinned gate-for-gate to the Python by a committed fixture, simulated
+    and fidelity-checked in the browser, with Qiskit / pytket / Cirq / OpenQASM 2 / 3
+    exports. The QASM, Qiskit and pytket exports were each run in `.venv-quantinuum` and
+    prepared |D^n_k> to within about 2e-15.
+  - **Benchmarks** and **How it works** pages; a social preview image.
+  - A motion layer on IBM Carbon's motion tokens (`src/lib/motion.ts`, `src/motion.css`):
+    scroll reveals, pointer spotlights on cards, sliding tab indicators, page transitions,
+    a WebGL spin-lattice hero, circuits and charts that draw themselves, race rows that
+    animate as results arrive, and a cursor companion (a ring that wraps controls, a
+    spark trail, a click pulse; the native cursor stays). It is all decoration and turns off
+    under `prefers-reduced-motion`.
+  - A design pass against an anti-slop checklist: Geist replaces Inter, the hero headline
+    runs across the measure over an 18-word lede, numbered section eyebrows are gone, the
+    three equal feature cards became a bento of three cells with real measured bars, and a
+    new scroll-scrubbed section plays one real bSB run frame by frame as the page scrolls.
+- `separatrix-wasm`: `solve_qubo` (arbitrary QUBO, all heuristics, exact up to n = 26),
+  `trace_sb` (positions and objective per frame, optional display-only `couplingScale`)
+  and `portfolio_qubo`. `solve_portfolio` and `subsets` are unchanged.
+- `separatrix` crate (additive): `sb::trace` / `SbTrace`, a recorded single-replica run
+  that shares the integration loop with `sb::solve`, and `sb::default_coupling`.
+- CI: a `studio` job (vitest, type-check, production build). Dependabot watches
+  `site/`.
+
+#### Changed
+
+- `scripts/build-wasm-demo.sh` now writes to `site/public/pkg`.
+
+### The settling pass (2026-09-04)
+
 The settling pass that prepares the repository for open source.
 
-### Changed
+#### Changed
 
 - The repository is now presented as one project, **Separatrix**, with a
   rewritten top-level `README.md`. Leash (the spending firewall) and the
@@ -30,7 +74,7 @@ The settling pass that prepares the repository for open source.
 - `package.json` renamed from `leash` and given author, repository and
   license fields.
 
-### Added
+#### Added
 
 - Open-source scaffolding: `CONTRIBUTING.md` (absorbing the old
   `docs/HACKATHON_DEV_GUIDE.md`), `CODE_OF_CONDUCT.md`, `SECURITY.md`,
@@ -49,7 +93,7 @@ The settling pass that prepares the repository for open source.
   CNOT counts because of the three-qubit gadget decomposition
   (`docs/primitives.md` §8). Quantum tests 56 → 68.
 
-### Removed
+#### Removed
 
 - Dead requirement pins: `requirements-x402.txt` and
   `requirements-devnet.txt`. Nothing in the tree imports `x402` or

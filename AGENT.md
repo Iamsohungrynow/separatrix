@@ -36,7 +36,11 @@ Solver:
 
 - [`separatrix/`](separatrix/) — the crate; **its own cargo workspace**, deliberately excluded from the root one
 - [`separatrix/cli/`](separatrix/cli/) — JSON solver bridge the Python workbench shells out to (`--emit-qubo` exports the on-chain coefficient digest)
-- [`separatrix/wasm/`](separatrix/wasm/) — `wasm-bindgen` bindings; [`site/demo/`](site/demo/) is the browser demo, rebuilt by `scripts/build-wasm-demo.sh` (generated `pkg/` is committed)
+- [`separatrix/wasm/`](separatrix/wasm/) — `wasm-bindgen` bindings (`solve_qubo`, `trace_sb`, `portfolio_qubo`, `solve_portfolio`); `scripts/build-wasm-demo.sh` rebuilds them into `site/public/pkg/` (committed)
+
+Studio (the public web app, separatrix.vercel.app):
+
+- [`site/`](site/) — Vite + React + TypeScript, its own `package.json`, Node 24. `src/problems/` (problem library, parsers, exporters, share links) and `src/quantum/dicke.ts` (Dicke engine) are plain tested TypeScript; `src/pages/` and `src/components/` are the UI; `public/solver-worker.js` is a classic worker around the no-modules WASM bundle
 
 Verification:
 
@@ -67,8 +71,18 @@ Keep every description below honest; update this section when reality changes.
 
 **Solver** — `separatrix` crate: bSB/dSB, SA, PT, Gray-code exact, `QuantizedQubo`,
 `portfolio` module. 0.1.0 is on crates.io (solver core only); the tree is at 0.2.0,
-unpublished until the maintainer runs `cargo publish`. Browser demo live at
-separatrix.vercel.app/demo.
+unpublished until the maintainer runs `cargo publish`.
+
+**Studio** — `site/` is Separatrix Studio: Max-Cut, number partitioning, independent set,
+portfolio and pasted-QUBO solving in the browser (all four heuristics plus exact
+enumeration up to n = 26, or a k-subset budget for portfolios), an SB trajectory replay,
+exports (dimod JSON, CPLEX LP, D-Wave Ocean, Qiskit Optimization, Rust), share links, a
+Dicke-state circuit builder (SCS and one-level DC, statevector-verified in the tab up to
+n = 22, exports to Qiskit/pytket/Cirq/OpenQASM 2/3), and a benchmarks page whose numbers
+are copied from committed artifacts (`site/src/data/benchmarks.ts` names each source).
+Qiskit, pytket, QASM2 and QASM3 exports were verified externally in `.venv-quantinuum`;
+the Cirq export is smoke-tested only. Old `/demo` URLs redirect to `/solve/portfolio`.
+The production site is redeployed by hand (`npx vercel --prod` from `site/`).
 
 **Workbench** — 39 assets, K=8, 234 weekly rebalances, exact ground truth on 100% of them
 (`docs/workbench.md`, `dashboard/workbench.html`). bSB median `gap_norm` 0.031, SA 0.079,
@@ -93,9 +107,10 @@ tax **1.96×** heavy-hex / **2.20×** linear (median, like-for-like), flat in n 
 `scripts/heron_qaoa.py` verified end to end in simulation only. **No hardware job has been
 submitted anywhere.**
 
-**Checks** — 406 Python tests (main venv), 68 quantum tests (`.venv-quantinuum`), 40 Rust
-tests + doc test, TypeScript type-check, IDL diffs, SBF lockfile guard, 19-test Anchor suite
-for separatrix (local validator): all green.
+**Checks** — 406 Python tests (main venv), 68 quantum tests (`.venv-quantinuum`), 53 Rust
+tests (incl. 2 doc tests), 159 Studio tests (vitest, `site/`) plus its type-check and build,
+TypeScript type-check, IDL diffs, SBF lockfile guard, 19-test Anchor suite for separatrix
+(local validator): all green (2026-09-22).
 
 Not implemented, and therefore never to be described as working:
 
@@ -103,6 +118,7 @@ Not implemented, and therefore never to be described as working:
   transpiler-seed sweep on the heavy-hex arm; the fully recursive O(k log(n/k)) Dicke
   construction
 - automatic on-chain publication of the workbench's live rebalances
+- an npm package of the WASM bindings (the Studio loads them from `site/public/pkg`)
 - npm-packaged SDK, native `anchorpy` client, `close_leash`, SPL-token vaults, x402 flow,
   hosted dashboard, solver bounty
 
@@ -130,6 +146,12 @@ The owner console's `dashboard/leash-ix.js` also hardcodes discriminators and th
   modern host cargo touching the root workspace silently rewrites `Cargo.lock` to v4.
   `npm run check:sbf-lockfile` catches that (and any host crate leaking in) and runs in CI.
   Never run host `cargo` commands in the repo root; work in `separatrix/` instead.
+- **Studio honesty.** The trace's `couplingScale` option (c0 multiplier) is display-only:
+  the hero animation uses 0.5 and says so on screen; the solver race always uses the
+  crate's default coupling. The Dicke emitters stamp "verified" only when handed a measured
+  fidelity and throw below the 1e-9 floor; keep it that way. Benchmark figures live in
+  `site/src/data/benchmarks.ts` with their source file and run id; change them only when the
+  artifact changes.
 - **Two cargo workspaces.** `separatrix/` is excluded from the root workspace on purpose. Its
   dependency tree must never enter the SBF lockfile.
 - **Four implementations of the commitment preimage must agree**: the program, the Rust

@@ -76,6 +76,29 @@ jobs:
           diff -u idl/leash.json "$RUNNER_TEMP/leash.json"
           diff -u idl/separatrix.json "$RUNNER_TEMP/separatrix.json"
 
+  studio:
+    # The browser app in site/. It runs the committed WASM bundle
+    # (site/public/pkg, rebuilt by scripts/build-wasm-demo.sh), so this job
+    # needs no Rust toolchain.
+    name: Studio (site/)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Unit tests (problem library, Dicke engine)
+        run: npm test
+      - name: Type-check and build
+        run: npm run build
+
   separatrix-crate:
     name: Rust solver crate
     runs-on: ubuntu-latest

@@ -10,11 +10,39 @@
 [![Solana devnet](https://img.shields.io/badge/solana-devnet-9945FF?logo=solana&logoColor=white)](https://explorer.solana.com/address/CsnV36BSJsfCRSrJQSCddi5ZM7XAA8KVpL8ziCh7xSzp?cluster=devnet)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-**[Run it in your browser](https://separatrix.vercel.app/demo/)** · [Docs](docs/README.md) · [Workbench study](docs/workbench.md) · [On-chain contract](docs/onchain.md) · [Quantum primitives](docs/primitives.md) · [Changelog](CHANGELOG.md)
+**[▶ Open Separatrix Studio](https://separatrix.vercel.app)** · [Solver](https://separatrix.vercel.app/solve) · [Dicke circuits](https://separatrix.vercel.app/dicke) · [Docs](docs/README.md) · [Workbench study](docs/workbench.md) · [On-chain contract](docs/onchain.md) · [Quantum primitives](docs/primitives.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
+
+<p align="center">
+  <a href="https://separatrix.vercel.app/solve"><img src="docs/assets/studio.png" alt="Separatrix Studio solving a Max-Cut instance in the browser: the graph coloured by the answer, the solver race against the proven optimum, and the bifurcation trace" width="100%"></a>
+</p>
+
+## Separatrix Studio: try it in your browser
+
+**[separatrix.vercel.app](https://separatrix.vercel.app)** runs the real Rust solvers, compiled to
+WebAssembly, on your own device. No account, no install, nothing uploaded.
+
+- **Solve** Max-Cut, number partitioning, maximum independent set, cardinality-constrained
+  portfolio selection on real covariance, or **paste your own QUBO** (a D-Wave `Q` dict,
+  dimod JSON, a dense matrix or an edge list).
+- **Race** simulated bifurcation (bSB, dSB) against simulated annealing and parallel
+  tempering, *and* against exact enumeration that proves the optimum: up to 26 variables,
+  or tens of millions of k-subsets for portfolios. Past that point the page says there is
+  no ground truth instead of pretending.
+- **Watch it think.** Every variable is an oscillator; scrub the replay and watch each one
+  cross the separatrix and commit to 0 or 1 while the graph makes up its mind.
+- **Export** the exact instance to D-Wave Ocean, Qiskit Optimization, a CPLEX LP file, dimod
+  JSON or a Rust program using this crate, or share it as a link.
+- **Build Dicke-state circuits.** Pick (n, k) and get the Bärtschi–Eidenbenz (or one-level
+  divide-and-conquer) preparation circuit, statevector-verified in the browser against the
+  exact |D<sup>n</sup><sub>k</sub>⟩ before it is offered as Qiskit, pytket, Cirq or OpenQASM 2/3.
+
+If it saves you time, a ⭐ helps other people find it.
+
+## What's underneath
 
 Separatrix is a research monorepo about one question: **how well do quantum-inspired
 and quantum methods actually solve a cardinality-constrained selection problem, and can
@@ -29,7 +57,7 @@ against an *exact* optimum, never PnL; and nothing here claims quantum advantage
 
 | Pillar | What it is | Where it lives | Status |
 | --- | --- | --- | --- |
-| **Solver** | Simulated bifurcation (bSB/dSB, Toshiba lineage) in pure Rust, shipped *with* its baselines: simulated annealing, parallel tempering, and Gray-code exact enumeration. Deterministic per seed, compiles to `wasm32`, quantizes the objective to `i128` so anyone can re-score a solution exactly. | [`separatrix/`](separatrix/) · [crates.io](https://crates.io/crates/separatrix) · [browser demo](https://separatrix.vercel.app/demo/) | shipped |
+| **Solver** | Simulated bifurcation (bSB/dSB, Toshiba lineage) in pure Rust, shipped *with* its baselines: simulated annealing, parallel tempering, and Gray-code exact enumeration. Deterministic per seed, compiles to `wasm32`, quantizes the objective to `i128` so anyone can re-score a solution exactly. | [`separatrix/`](separatrix/) · [crates.io](https://crates.io/crates/separatrix) · [Studio](https://separatrix.vercel.app/solve) | shipped |
 | **Verification** | Two Anchor programs on Solana devnet. `separatrix` commits an allocation *before* execution and later re-derives its integer objective on-chain. `leash` is a spending firewall: a program-owned vault with a per-transaction cap, daily budget, allowlist, and owner kill switch that an autonomous agent cannot negotiate with. | [`programs/`](programs/) · [`docs/onchain.md`](docs/onchain.md) · [`docs/design.md`](docs/design.md) | deployed on devnet, unaudited |
 | **Quantum** | The *same* constraint ("exactly k of n") attacked with constraint-preserving ansätze: Bärtschi–Eidenbenz Dicke-state preparation + XY-ring mixers, characterised across (n, k) on all-to-all, heavy-hex and linear connectivity, with physical ion leakage separated from Hamming-weight loss on Quantinuum's Selene emulator. Plus a QAOA pipeline for IBM Heron that refuses to overclaim. | [`quantum/`](quantum/) · [`scripts/heron_qaoa.py`](scripts/heron_qaoa.py) · [`docs/primitives.md`](docs/primitives.md) · [`docs/quantum.md`](docs/quantum.md) | emulated; no hardware job submitted |
 
@@ -58,10 +86,11 @@ Correcting it is the point.
 
 ## Try it in sixty seconds
 
-**In a tab** — the real crate, compiled to WebAssembly, on real Binance covariance:
-[separatrix.vercel.app/demo](https://separatrix.vercel.app/demo/). Drag the universe up
-and watch exact enumeration fall off a cliff while the heuristics barely notice. That
-cliff is the entire argument for heuristics; below it, they are a losing trade.
+**In a tab**: [separatrix.vercel.app](https://separatrix.vercel.app). The
+[portfolio solver](https://separatrix.vercel.app/solve/portfolio) runs the real crate on real
+Binance covariance. Drag the universe up and watch exact enumeration fall off a cliff while
+the heuristics barely notice. That cliff is the entire argument for heuristics; below it,
+they are a losing trade.
 
 **In Rust:**
 
@@ -113,7 +142,7 @@ flowchart LR
   subgraph solver["Solver (Rust)"]
     CLI[separatrix-cli<br/>JSON bridge] --> LIB[separatrix crate<br/>bSB · dSB · SA · PT · exact]
     LIB --> Q[QuantizedQubo<br/>canonical i128 objective]
-    LIB --> WASM[separatrix-wasm<br/>browser demo]
+    LIB --> WASM[separatrix-wasm<br/>Separatrix Studio]
   end
 
   subgraph chain["Verification (Solana devnet)"]
@@ -158,7 +187,7 @@ subsets per rebalance ([`docs/workbench.md`](docs/workbench.md), [`dashboard/wor
 Read it straight: at this size exact enumeration is affordable and **wins outright**.
 bSB buys a 128× speed-up by landing ~3 % of the way along the achievable objective
 range; dSB is poor on these instances. The case for a heuristic starts where C(N, K)
-stops being enumerable — which is exactly what the browser demo lets you feel.
+stops being enumerable, which is exactly what the Studio's portfolio solver lets you feel.
 
 **On-chain verification** — measured compute units on devnet
 ([`docs/onchain.md`](docs/onchain.md)): `reveal_allocation` cost tracks *k*, not *n*
@@ -216,7 +245,7 @@ Both programs are devnet software and have not been audited.
 ## Quickstarts by pillar
 
 <details>
-<summary><b>Solver crate and browser demo</b></summary>
+<summary><b>Solver crate and Separatrix Studio</b></summary>
 
 ```bash
 cd separatrix
@@ -226,9 +255,21 @@ cargo bench                                              # criterion throughput 
 cargo check --no-default-features --target wasm32-unknown-unknown
 ```
 
-Rebuild the browser bundle with `scripts/build-wasm-demo.sh` (needs `wasm-bindgen`;
-the generated `site/demo/pkg/` is committed so the site deploys toolchain-free). The
-crate is its **own cargo workspace**, deliberately excluded from the repo root.
+The crate is its **own cargo workspace**, deliberately excluded from the repo root.
+
+The Studio (`site/`, Vite + React + TypeScript) needs only Node 24:
+
+```bash
+cd site
+npm ci
+npm run dev        # http://localhost:5173
+npm test           # problem library, parsers, exporters, Dicke engine (vitest)
+npm run build      # type-check + production bundle in site/dist
+```
+
+It runs the committed WebAssembly bundle in `site/public/pkg/`. After changing the crate,
+rebuild it with `scripts/build-wasm-demo.sh` (needs `wasm-bindgen-cli` 0.2.127) and commit
+the regenerated files, so the site keeps deploying without a Rust toolchain.
 
 </details>
 
@@ -294,7 +335,7 @@ are in [`docs/primitives.md`](docs/primitives.md) and [`docs/quantum.md`](docs/q
 ```
 separatrix/          Rust solver crate (own workspace): sb · sa · pt · exact · quantized · portfolio
   cli/               JSON stdin/stdout bridge the Python workbench shells out to
-  wasm/              wasm-bindgen bindings for the browser demo
+  wasm/              wasm-bindgen bindings behind Separatrix Studio
 programs/            Anchor programs: separatrix (commit + re-score) and leash (spending firewall)
 idl/                 Committed IDLs, generated by scripts/gen-*.js and diffed in CI
 scripts/             devnet bridges (TypeScript), IDL generators, heron_qaoa.py, wasm build
@@ -302,7 +343,7 @@ agent/               Python: demo agent, FastAPI, price history, workbench (walk
 quantum/             Dicke + XY IR, verification, pytket compile arms, Selene backend, the sweep
 tests/               406 Python tests (68 of them quantum), Anchor TypeScript suites
 dashboard/           Live monitor, wallet owner console, workbench report viewer
-site/                separatrix.vercel.app: landing page and the WASM demo
+site/                Separatrix Studio (Vite + React): solver, Dicke circuit builder, benchmarks
 reports/examples/    Committed artifacts: workbench study, Dicke characterisation, QAOA simulation
 docs/                Contracts and references (start at docs/README.md)
 ```
@@ -310,8 +351,9 @@ docs/                Contracts and references (start at docs/README.md)
 ## Validation surface
 
 Green in CI on every push: Python lint + 406 tests, the pytket layer of the quantum
-tests, TypeScript type-check, IDL-vs-generator diffs, the SBF lockfile guard, and the
-Rust crate's format, tests, clippy, wasm32 check, and docs build.
+tests, TypeScript type-check, IDL-vs-generator diffs, the SBF lockfile guard, the
+Rust crate's format, tests, clippy, wasm32 check, and docs build, and the Studio's unit
+tests, type-check and production build.
 
 Run locally, not in CI: the Selene/Guppy layer (`requirements-quantinuum.txt`), the
 devnet smoke scripts (they move real devnet SOL), and the Anchor suites against a local
@@ -319,7 +361,7 @@ validator (`npm run test:anchor`).
 
 ## Status and roadmap
 
-Shipped: solver crate, portfolio workbench with proven optima, browser demo, both devnet
+Shipped: solver crate, Separatrix Studio (in-browser solver and Dicke circuit builder), portfolio workbench with proven optima, both devnet
 programs, wallet owner console, Dicke/XY characterisation with a committed 35-point
 report, QAOA pipeline verified in simulation.
 

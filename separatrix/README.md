@@ -106,7 +106,7 @@ that **no heuristic ever reports an energy below the exact ground state**.
 | --- | --- | --- |
 | `separatrix` | crates.io | the library |
 | `separatrix-cli` | no | JSON stdin/stdout bridge for the Python workbench (`--emit-qubo` also exports the on-chain coefficient digest) |
-| `separatrix-wasm` | no | `wasm-bindgen` bindings behind the browser demo |
+| `separatrix-wasm` | no | `wasm-bindgen` bindings behind Separatrix Studio |
 
 ## References
 
@@ -129,8 +129,9 @@ configurable `C(N,K)` cap. (`0.1.0` on crates.io predates the portfolio module.)
 Around the crate, in the [parent repository](https://github.com/Iamsohungrynow/separatrix):
 
 - the walk-forward workbench and the published study above;
-- a **browser demo** at <https://separatrix.vercel.app/demo> — this crate compiled
-  to WebAssembly (`wasm/`), running every solver and exact enumeration in a tab;
+- **Separatrix Studio** at <https://separatrix.vercel.app>: this crate compiled to
+  WebAssembly (`wasm/`), solving Max-Cut, partitioning, independent set, portfolios or
+  any pasted QUBO with every solver and exact enumeration in a tab;
 - a **Solana program** (devnet) that commits an allocation before execution and
   re-derives its `i128` objective on-chain from the same `QuantizedQubo` scores;
 - the **quantum** side: Dicke-state + XY-mixer primitives characterised on

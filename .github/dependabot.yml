@@ -30,6 +30,17 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
+  # npm: the Studio web app (Vite + React), its own package.json.
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      site-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
   # pip: the requirements*.txt files at the root. requirements-quantinuum.txt
   # carries exact pins that were installed and exercised by hand; a bump there
   # must be re-verified in the dedicated .venv-quantinuum before merging.
