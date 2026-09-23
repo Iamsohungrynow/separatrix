@@ -1,0 +1,229 @@
+.page { padding-top: clamp(36px, 6vw, 72px); }
+.page-h { max-width: 760px; display: grid; gap: 14px; margin-bottom: 36px; }
+.page-h h1 { font-size: clamp(34px, 5vw, 54px); letter-spacing: -0.035em; font-weight: 700; }
+.page-h p { font-size: 16.5px; line-height: 1.6; }
+.page-h b { color: var(--ink); font-weight: 600; }
+
+/* Carbon-style eyebrow: a short hairline trails the label and draws in on reveal. */
+.page-h .eyebrow::after {
+  content: ""; flex: none; width: 44px; height: 1px;
+  background: linear-gradient(90deg, var(--line-2), transparent);
+  transform-origin: 0 50%;
+}
+
+.callout { border-left: 2px solid var(--up); background: rgba(63, 216, 192, 0.05); padding: 12px 14px; border-radius: 0 10px 10px 0; font-size: 14px; color: var(--ink-2); }
+.callout b { color: var(--ink); }
+.source { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); width: fit-content; border-bottom: 1px dashed var(--line-2); padding-bottom: 1px; transition: color var(--dur-3) var(--ease), border-color var(--dur-3) var(--ease); }
+.source:hover { color: var(--up); border-color: var(--up); }
+/* small print still has to clear 4.5:1 against the page, so it stops at ink-3 */
+.fine { font-size: 12.5px; color: var(--ink-3); }
+.fine b { font-weight: 600; }
+
+.chart { width: 100%; height: auto; background: rgba(0, 0, 0, 0.18); border: 1px solid var(--line); border-radius: 12px; }
+.chart .ax { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-4); }
+.chart .ax-l { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
+.chart .pt-l { font-family: var(--mono); font-size: 11.5px; font-weight: 600; }
+
+/* Benchmark charts: points land with a small spring, and the hovered one rings. */
+.bench-chart .pop, .sq-ring { transform-box: fill-box; transform-origin: 50% 50%; }
+.sq-pt { cursor: default; }
+.sq-halo { transition: r var(--dur-4) var(--ease-spring), fill-opacity var(--dur-3) var(--ease), filter var(--dur-4) var(--ease); }
+.sq-ring { opacity: 0; scale: 0.6; stroke-width: 1; transition: opacity var(--dur-4) var(--ease), scale var(--dur-5) var(--ease-x); }
+.sq-pt.on .sq-ring { opacity: 0.45; scale: 1; }
+.sq-pt.on .sq-halo { fill-opacity: 0.3; filter: drop-shadow(0 0 8px currentColor); }
+.rt-pt { transition: stroke-width var(--dur-3) var(--ease), r var(--dur-3) var(--ease); }
+.rt-pt:hover { stroke-width: 7px; r: 4.4px; }
+
+/* A rule under the header, a tint on alternate rows, and nothing else: a
+ * hairline under every row is noise, not structure. */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.table th { text-align: left; font-weight: 550; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); padding: 0 14px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+.table td { padding: 12px 14px; color: var(--ink-2); transition: background var(--dur-3) var(--ease), color var(--dur-3) var(--ease); }
+.table tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.017); }
+.table td.num, .table th:not(:first-child) { text-align: right; }
+.table td.num { color: var(--ink); }
+/* row hover (or the matching chart point hovered) */
+.table tbody tr:hover td, .table tbody tr.on td { background: rgba(255, 255, 255, 0.05); color: var(--ink); }
+.sw { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 9px; vertical-align: 0; transition: scale var(--dur-4) var(--ease-spring), box-shadow var(--dur-4) var(--ease); }
+.table tr:hover .sw, .table tr.on .sw { scale: 1.3; box-shadow: 0 0 10px currentColor; }
+
+/* Phones: a four-column table would scroll sideways, so each solver becomes a
+ * labelled block instead. */
+@media (max-width: 720px) {
+  .table thead { display: none; }
+  .table tbody, .table tr, .table td { display: block; }
+  .table tr { padding: 12px 0; border-top: 1px solid var(--line); }
+  .table tbody tr:nth-child(even) td { background: none; }
+  .table td { padding: 4px 0; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+  .table td::before { content: attr(data-label); color: var(--ink-3); font-size: 12.5px; }
+  .table td:first-child { align-items: center; justify-content: flex-start; color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+}
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpis > div { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 6px; background: rgba(0, 0, 0, 0.14); transition: border-color var(--dur-4) var(--ease); }
+.kpis > div:hover { border-color: var(--line-2); }
+.kpis > .spot { --spot-size: 280px; --edge-size: 190px; }
+.kpis .num { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.kpis small { color: var(--ink-3); font-size: 12px; line-height: 1.45; }
+/* ---------- /benchmarks ----------
+ * Sections are separated by a rule and by whitespace rather than by a box, so
+ * the only elevated surfaces left are the ones that really are surfaces: a
+ * chart and a code block. Each section's honesty label lives in its .meta
+ * line, which is why none of them needs an eyebrow. */
+.bench-page .bsec {
+  display: grid; gap: clamp(22px, 3vw, 38px);
+  border-top: 1px solid var(--line);
+  margin-top: clamp(40px, 5.5vw, 76px); padding-top: clamp(30px, 4vw, 54px);
+}
+.bench-page .sec-head { display: grid; gap: clamp(16px, 2.2vw, 30px); align-items: start; }
+.bench-page .sec-head h2 { font-size: clamp(23px, 2.5vw, 32px); letter-spacing: -0.028em; max-width: 24ch; }
+.bench-page .sec-head p { color: var(--ink-2); font-size: 15px; max-width: 64ch; }
+.bench-page .sec-head.one { gap: 14px; max-width: 800px; }
+.bench-page .sec-lede { display: grid; gap: 14px; align-content: start; }
+.bench-page .sec-split { display: grid; gap: clamp(16px, 2.4vw, 32px); align-items: start; }
+.bench-page .side-note { max-width: 46ch; }
+@media (min-width: 900px) {
+  .bench-page .sec-head.two { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
+  .bench-page .sec-head.two > :first-child { display: grid; gap: 14px; align-content: start; }
+  .bench-page .sec-split { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
+  .bench-page .bsec.run-row { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr); gap: clamp(24px, 4vw, 56px); align-items: start; }
+}
+.bench-page .run-row h2 { font-size: clamp(23px, 2.5vw, 32px); letter-spacing: -0.028em; }
+.bench-page .run-row p { color: var(--ink-2); font-size: 15px; max-width: 48ch; margin-top: 12px; }
+
+/* how the numbers were produced, then the artifact they were copied from */
+.bench-page .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.bench-page .status { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+
+/* figures, the one place a border still means "this is a surface" */
+.bench-page .fig { display: grid; gap: 10px; margin: 0; min-width: 0; }
+/* a full-width table would strand its numbers a screen away from their row */
+.bench-page .table-wrap { max-width: 900px; }
+.bench-page .chartbox {
+  border: 1px solid var(--line); border-radius: 12px; background: rgba(0, 0, 0, 0.18); overflow: hidden;
+  --spot-size: 620px; --edge-size: 340px;
+  transition: border-color var(--dur-4) var(--ease);
+}
+.bench-page .chartbox:hover { border-color: var(--line-2); }
+.bench-page .bench-chart { background: transparent; border: 0; border-radius: 0; }
+/* axis type is small print too, so it has to clear 4.5:1 as well */
+.bench-page .bench-chart .ax { fill: var(--ink-3); }
+
+/* figures that lead a section: a hairline above, no box around them */
+.bench-page .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: clamp(16px, 2.6vw, 34px); }
+.bench-page .stats > div { display: grid; gap: 8px; align-content: start; border-top: 1px solid var(--line-2); padding-top: 14px; }
+.bench-page .stats .num { font-size: clamp(26px, 2.6vw, 34px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
+.bench-page .stats.lead .num { font-size: clamp(32px, 4vw, 50px); }
+.bench-page .stats small { color: var(--ink-3); font-size: 12.5px; line-height: 1.5; max-width: 34ch; }
+
+/* three samplers, three figures each: a comparison rather than a three-row table */
+.bench-page .compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(16px, 2.4vw, 32px); }
+.bench-page .cmp { display: grid; gap: 12px; align-content: start; border-top: 1px solid var(--line); padding-top: 14px; }
+.bench-page .cmp.on { border-top: 2px solid var(--up); }
+.bench-page .cmp h3 { font-size: 14.5px; font-weight: 600; line-height: 1.35; color: var(--ink-2); }
+.bench-page .cmp.on h3 { color: var(--ink); }
+.bench-page .cmp dl { margin: 0; display: grid; gap: 8px; }
+.bench-page .cmp dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.bench-page .cmp dt { font-size: 12.5px; color: var(--ink-3); }
+.bench-page .cmp dd { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+@media (min-width: 620px) { .bench-page .cmp h3 { min-height: 2.7em; } }
+
+/* the portrait viewBox on phones renders at about 0.9, so its type is stepped up */
+@media (max-width: 899px) {
+  .bench-page .bench-chart .ax, .bench-page .bench-chart .ax-l { font-size: 12px; }
+  .bench-page .bench-chart .pt-l { font-size: 13px; }
+}
+
+.links-list { display: grid; gap: 8px; }
+.links-list a { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 14px; width: fit-content; transition: color var(--dur-3) var(--ease); }
+.links-list a:hover { color: var(--up); }
+/* external-link glyphs lean out the way they point */
+.links-list a svg, .source svg { transition: translate var(--dur-4) var(--ease-x); }
+.links-list a:hover svg, .links-list a:focus-visible svg, .source:hover svg, .source:focus-visible svg { translate: 2px -2px; }
+
+.prose { max-width: 720px; }
+.prose h2 { font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -0.025em; margin: 56px 0 14px; }
+.prose h3 { font-size: 17px; margin: 28px 0 8px; }
+.prose p, .prose li { color: var(--ink-2); font-size: 15.5px; line-height: 1.7; }
+.prose p + p { margin-top: 14px; }
+.prose ul, .prose ol { padding-left: 22px; display: grid; gap: 6px; margin: 12px 0; }
+.prose b, .prose strong { color: var(--ink); font-weight: 600; }
+.prose code { color: var(--down); font-size: 0.9em; }
+.prose .code { margin: 18px 0; }
+.eq { font-family: var(--mono); font-size: 14px; color: var(--ink); background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 16px 0; overflow-x: auto; white-space: nowrap; }
+
+/* ---------- /learn ---------- */
+.learn .prose h2[id] { scroll-margin-top: 84px; }
+/* the reading measure: prose stops at 65ch, equations keep the whole column */
+.learn .prose > section > p, .learn .prose > section > ul, .learn .prose > section > ol { max-width: 65ch; }
+.learn .eq { position: relative; transition: border-color var(--dur-4) var(--ease); }
+.learn .eq:hover { border-color: var(--line-2); }
+/* the two branches, as a hairline down the equation's edge */
+.learn .eq::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
+  background: linear-gradient(var(--up), var(--down)); opacity: 0.6; transform-origin: 50% 50%;
+}
+.learn-body { display: grid; grid-template-columns: minmax(0, 1fr); }
+/* a grid item stops the first h2's margin collapsing into the header's, so trim it back to the old gap */
+.learn-body .prose > section:first-child > h2 { margin-top: 20px; }
+.toc { display: none; }
+@media (min-width: 1100px) {
+  .learn-body { grid-template-columns: minmax(0, 720px) 232px; justify-content: space-between; gap: 48px; }
+  .toc { display: block; padding-top: 26px; }
+}
+.toc nav { position: sticky; top: 96px; }
+.toc-h { display: block; margin-bottom: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.toc-list { display: grid; border-left: 1px solid var(--line); }
+.toc-list a { display: block; padding: 8px 0 8px 14px; font-size: 13px; line-height: 1.4; color: var(--ink-3); transition: color var(--dur-3) var(--ease); }
+.toc-list a:hover, .toc-list a:focus-visible, .toc-list a.is-active { color: var(--ink); }
+/* the data-indicator pill, restyled as a 2px bar riding the rail */
+.toc .toc-list::before { left: -1.5px; width: 2px; border-radius: 2px; background: var(--up); box-shadow: 0 0 10px var(--up-glow); }
+
+/* ---------- 404 ---------- */
+.nf-art { width: min(300px, 80vw); height: auto; overflow: visible; margin-bottom: 4px; }
+.nf-sep { fill: none; stroke: rgba(214, 236, 230, 0.14); stroke-dasharray: 2 5; }
+.nf-ghost { fill: none; stroke-width: 1.6; stroke-dasharray: 3 6; }
+.nf-stem, .nf-up, .nf-down { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.nf-up { filter: drop-shadow(0 0 6px rgba(63, 216, 192, 0.35)); }
+.nf-down { filter: drop-shadow(0 0 6px rgba(242, 162, 92, 0.3)); }
+.nf-node, .nf-end { transform-box: fill-box; transform-origin: 50% 50%; }
+.nf-spark { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 0.05 2; stroke-dashoffset: 0.05; opacity: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion .page-h .eyebrow[data-in]::after { animation: pg-rule var(--dur-6) var(--ease-x-in) 250ms backwards; }
+
+  /* charts: the grid draws (.draw), then points land, then labels settle */
+  .motion .bench-chart[data-in] .pop { animation: pg-pop var(--dur-5) var(--ease-spring) backwards; animation-delay: calc(380ms + var(--i, 0) * 110ms); }
+  .motion .bench-chart[data-in] .rt-pt { animation-delay: calc(320ms + var(--t, 0) * 900ms); }
+  .motion .bench-chart[data-in] text, .motion .bench-chart[data-in] .rt-legend { animation: pg-fade var(--dur-5) var(--ease) 200ms backwards; }
+  .motion .bench-chart[data-in] .pt-l { animation-delay: calc(520ms + var(--i, 0) * 110ms); }
+
+  /* table rows: productive and short, like Carbon's data tables */
+  .motion .table tr[data-reveal][data-in] { animation: pg-row var(--dur-4) var(--ease-in) backwards; animation-delay: calc(200ms + var(--i, 0) * 45ms); }
+
+  /* KPI numbers warm from dim to full ink as CountUp lands them */
+  .motion .kpis > [data-in] .kpi-count, .motion .stats > [data-in] .kpi-count { animation: pg-land 1200ms var(--ease-x) backwards; }
+
+  .motion .learn .eq[data-in]::before { animation: pg-bar var(--dur-6) var(--ease-x-in) 250ms backwards; }
+
+  .nf-stem, .nf-up, .nf-down { stroke-dasharray: 1; }
+  .nf-sep { animation: pg-fade var(--dur-6) var(--ease) backwards; }
+  .nf-ghost { animation: pg-fade var(--dur-6) var(--ease) 1000ms backwards; }
+  .nf-stem { animation: pg-draw 650ms var(--ease-x-in) 100ms backwards; }
+  .nf-node { animation: pg-pop var(--dur-5) var(--ease-spring) 650ms backwards; }
+  .nf-up, .nf-down { animation: pg-draw 900ms var(--ease-x-in) 700ms backwards; }
+  .nf-end { animation: pg-pop var(--dur-5) var(--ease-spring) 1450ms backwards; }
+  /* the trajectory takes each branch once, after they have drawn: it tells the
+   * story on the page, so it does not need to loop for ever */
+  .nf-spark { animation: nf-spark 6s var(--ease-x) 2.2s 1 backwards; }
+  .nf-spark.down { animation-delay: 5.2s; }
+}
+@keyframes pg-rule { from { scale: 0 1; } }
+@keyframes pg-pop { from { opacity: 0; scale: 0; } }
+@keyframes pg-fade { from { opacity: 0; } }
+@keyframes pg-row { from { opacity: 0; translate: -8px 0; } }
+@keyframes pg-land { from { color: var(--ink-4); } }
+@keyframes pg-bar { from { opacity: 0; scale: 1 0; } }
+@keyframes pg-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes nf-spark { 0% { stroke-dashoffset: 0.05; opacity: 0; } 4%, 26% { opacity: 1; } 32%, 100% { stroke-dashoffset: -1; opacity: 0; } }

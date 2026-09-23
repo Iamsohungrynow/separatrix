@@ -1,0 +1,286 @@
+/* Motion system. Timing and easing follow IBM Carbon's motion tokens:
+ * "productive" curves for UI feedback, "expressive" ones for entrances and
+ * moments that should be noticed. The hooks that drive the attribute-based
+ * effects are in lib/motion.ts; the colour meaning (teal = bit 1, amber =
+ * bit 0) is unchanged and glows reuse the same two hues. */
+
+:root {
+  --ease: cubic-bezier(0.2, 0, 0.38, 0.9);              /* productive standard */
+  --ease-in: cubic-bezier(0, 0, 0.38, 0.9);             /* productive entrance */
+  --ease-out: cubic-bezier(0.2, 0, 1, 0.9);             /* productive exit */
+  --ease-x: cubic-bezier(0.4, 0.14, 0.3, 1);            /* expressive standard */
+  --ease-x-in: cubic-bezier(0, 0, 0.3, 1);              /* expressive entrance */
+  --ease-x-out: cubic-bezier(0.4, 0.14, 1, 1);          /* expressive exit */
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);      /* small overshoot, used sparingly */
+
+  --dur-1: 70ms;    /* fast-01 */
+  --dur-2: 110ms;   /* fast-02 */
+  --dur-3: 150ms;   /* moderate-01 */
+  --dur-4: 240ms;   /* moderate-02 */
+  --dur-5: 400ms;   /* slow-01 */
+  --dur-6: 700ms;   /* slow-02 */
+}
+
+/* ---------- scroll reveals ----------
+ * Hidden only once JS has marked <html class="motion">, so without scripts
+ * (and in print) everything is simply visible. Animations, not transitions,
+ * so they never fight a component's own hover transitions. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion [data-reveal]:not([data-in]) { opacity: 0; }
+  .motion [data-reveal][data-in] {
+    animation: rv-up var(--dur-6) var(--ease-x-in) backwards;
+    animation-delay: calc(var(--i, 0) * 75ms + var(--d, 0ms));
+  }
+  .motion [data-reveal="fade"][data-in] { animation-name: rv-fade; }
+  .motion [data-reveal="scale"][data-in] { animation-name: rv-scale; }
+  .motion [data-reveal="left"][data-in] { animation-name: rv-left; }
+  .motion [data-reveal="right"][data-in] { animation-name: rv-right; }
+  .motion [data-reveal="blur"][data-in] { animation-name: rv-blur; animation-duration: 900ms; }
+}
+@keyframes rv-up { from { opacity: 0; translate: 0 22px; } }
+@keyframes rv-fade { from { opacity: 0; } }
+@keyframes rv-scale { from { opacity: 0; scale: 0.95; } }
+@keyframes rv-left { from { opacity: 0; translate: -28px 0; } }
+@keyframes rv-right { from { opacity: 0; translate: 28px 0; } }
+@keyframes rv-blur { from { opacity: 0; filter: blur(10px); translate: 0 12px; } }
+
+[data-reveal-stagger] > :nth-child(1) { --i: 0; }
+[data-reveal-stagger] > :nth-child(2) { --i: 1; }
+[data-reveal-stagger] > :nth-child(3) { --i: 2; }
+[data-reveal-stagger] > :nth-child(4) { --i: 3; }
+[data-reveal-stagger] > :nth-child(5) { --i: 4; }
+[data-reveal-stagger] > :nth-child(6) { --i: 5; }
+[data-reveal-stagger] > :nth-child(7) { --i: 6; }
+[data-reveal-stagger] > :nth-child(8) { --i: 7; }
+[data-reveal-stagger] > :nth-child(9) { --i: 8; }
+[data-reveal-stagger] > :nth-child(10) { --i: 9; }
+[data-reveal-stagger] > :nth-child(11) { --i: 10; }
+[data-reveal-stagger] > :nth-child(n + 12) { --i: 11; }
+
+/* ---------- spotlight cards ----------
+ * ::before is a soft light inside the card, ::after lights the border ring.
+ * Both sit behind the content (isolation + z-index -1). Tone with
+ * .tone-down / .tone-violet, or set --spot / --spot-edge directly. */
+.spot { position: relative; isolation: isolate; --spot: rgba(63, 216, 192, 0.10); --spot-edge: rgba(63, 216, 192, 0.65); }
+.spot.tone-down { --spot: rgba(242, 162, 92, 0.10); --spot-edge: rgba(242, 162, 92, 0.65); }
+.spot.tone-violet { --spot: rgba(165, 148, 249, 0.11); --spot-edge: rgba(165, 148, 249, 0.65); }
+.spot::before, .spot::after {
+  content: ""; position: absolute; pointer-events: none; border-radius: inherit; z-index: -1;
+  opacity: 0; transition: opacity var(--dur-5) var(--ease);
+}
+.spot::before {
+  inset: 0;
+  background: radial-gradient(var(--spot-size, 440px) circle at var(--mx, 50%) var(--my, 0%), var(--spot), transparent 42%);
+}
+.spot::after {
+  inset: -1px; padding: 1px;
+  background: radial-gradient(var(--edge-size, 280px) circle at var(--mx, 50%) var(--my, 0%), var(--spot-edge), transparent 45%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.spot:hover::before, .spot:hover::after, .spot:focus-visible::before, .spot:focus-visible::after { opacity: 1; }
+[data-spot-group]:hover .spot::after { opacity: 0.55; }
+[data-spot-group]:hover .spot:hover::after { opacity: 1; }
+
+/* ---------- lift and tilt (transform channel) ---------- */
+.lift {
+  transition: transform var(--dur-5) var(--ease-x), box-shadow var(--dur-5) var(--ease-x), border-color var(--dur-4) var(--ease);
+}
+.lift:hover {
+  transform: translateY(-4px);
+  border-color: var(--line-2);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 28px 60px -28px rgba(0, 0, 0, 0.85), 0 18px 50px -34px var(--spot, var(--up-glow));
+}
+[data-tilt] {
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
+  transition: transform var(--dur-6) var(--ease-x), box-shadow var(--dur-5) var(--ease-x), border-color var(--dur-4) var(--ease);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+[data-tilt]:hover {
+  --lift: -4px;
+  transition: transform var(--dur-3) linear, box-shadow var(--dur-5) var(--ease-x), border-color var(--dur-4) var(--ease);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 30px 60px -30px rgba(0, 0, 0, 0.9), 0 20px 60px -36px var(--spot, var(--up-glow));
+}
+/* Children can float above a tilted card: <span data-depth="30">. Not on a
+ * .spot card: its isolation flattens preserve-3d. */
+[data-tilt] [data-depth] { transform: translateZ(calc(var(--depth, 20) * 1px)); }
+
+[data-magnetic] {
+  transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
+  transition: transform var(--dur-5) var(--ease-spring), background var(--dur-3), border-color var(--dur-3), box-shadow var(--dur-4), scale var(--dur-2) var(--ease);
+}
+[data-magnetic]:hover { transition: transform var(--dur-2) linear, background var(--dur-3), border-color var(--dur-3), box-shadow var(--dur-4), scale var(--dur-2) var(--ease); }
+
+/* ---------- sliding indicators ----------
+ * The container gets --ind-* from lib/motion.ts; the pill is drawn here. Until
+ * the first placement ([data-ind] absent) it jumps instead of sliding. */
+.seg, [data-indicator] { position: relative; isolation: isolate; }
+.seg::before, [data-indicator]::before {
+  content: ""; position: absolute; left: 0; top: 0; z-index: -1; pointer-events: none;
+  width: var(--ind-w, 0); height: var(--ind-h, 0);
+  translate: var(--ind-x, 0) var(--ind-y, 0);
+  opacity: var(--ind-o, 0);
+  border-radius: 7px;
+  background: var(--surface-3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--line-2);
+}
+.seg[data-ind]::before, [data-indicator][data-ind]::before {
+  transition: translate var(--dur-5) var(--ease-x), width var(--dur-5) var(--ease-x), height var(--dur-5) var(--ease-x), opacity var(--dur-3);
+}
+.motion .seg button[aria-pressed="true"], .motion .seg button[aria-selected="true"] { background: transparent; box-shadow: none; }
+
+[data-hover-indicator] { position: relative; isolation: isolate; }
+[data-hover-indicator]::after {
+  content: ""; position: absolute; left: 0; top: 0; z-index: -2; pointer-events: none;
+  width: var(--hov-w, 0); height: var(--hov-h, 0);
+  translate: var(--hov-x, 0) var(--hov-y, 0);
+  opacity: var(--hov-o, 0);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  transition: translate var(--dur-4) var(--ease-x), width var(--dur-4) var(--ease-x), height var(--dur-4) var(--ease-x), opacity var(--dur-4) var(--ease);
+}
+[data-hover-indicator][data-hov-jump]::after { transition: opacity var(--dur-4) var(--ease); }
+
+/* ---------- split words (display headings) ---------- */
+.split-w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.1em; margin-bottom: -0.1em; }
+.split-w > span { display: inline-block; }
+@media (prefers-reduced-motion: no-preference) {
+  .split-w > span { animation: split-in 1s var(--ease-x-in) backwards; }
+}
+@keyframes split-in { from { translate: 0 105%; opacity: 0; } 40% { opacity: 1; } }
+
+/* ---------- marquee ---------- */
+.marquee {
+  overflow: hidden; display: flex;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+}
+.marquee-track { display: flex; flex: none; width: max-content; animation: marquee var(--marquee-dur, 40s) linear infinite; }
+.marquee.reverse .marquee-track { animation-direction: reverse; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-group { display: flex; flex: none; align-items: center; gap: var(--marquee-gap, 12px); padding-right: var(--marquee-gap, 12px); }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+/* ---------- grid backdrop (the Qiskit/Carbon 2x grid, lit by the pointer) ----------
+ * Drop <div class="grid-bg" aria-hidden="true"/> as the first child of a
+ * position:relative section that carries data-pointer. */
+.grid-bg {
+  position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden;
+  --cell: 56px;
+  background-image:
+    linear-gradient(to right, rgba(214, 236, 230, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(214, 236, 230, 0.045) 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+  background-position: calc(50% + var(--cell) / 2) 0;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 25%, transparent 75%);
+}
+.grid-bg::after {
+  /* the same grid, brighter, only near the pointer */
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(63, 216, 192, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(63, 216, 192, 0.35) 1px, transparent 1px);
+  background-size: inherit; background-position: inherit;
+  -webkit-mask-image: radial-gradient(240px circle at var(--mx, -999px) var(--my, -999px), #000, transparent 70%);
+  mask-image: radial-gradient(240px circle at var(--mx, -999px) var(--my, -999px), #000, transparent 70%);
+  opacity: 0; transition: opacity var(--dur-6) var(--ease);
+}
+[data-pointer]:hover > .grid-bg::after { opacity: 1; }
+
+/* ---------- ambient field (behind everything) ---------- */
+.ambient { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.ambient i {
+  position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.55; will-change: transform;
+}
+.ambient i:nth-child(1) { width: 46rem; height: 30rem; left: -12rem; top: -14rem; background: radial-gradient(closest-side, rgba(63, 216, 192, 0.16), transparent); animation: drift-a 26s ease-in-out infinite alternate; }
+.ambient i:nth-child(2) { width: 40rem; height: 28rem; right: -14rem; top: 4rem; background: radial-gradient(closest-side, rgba(242, 162, 92, 0.11), transparent); animation: drift-b 32s ease-in-out infinite alternate; }
+.ambient i:nth-child(3) { width: 34rem; height: 26rem; left: 30%; top: 60%; background: radial-gradient(closest-side, rgba(165, 148, 249, 0.07), transparent); animation: drift-c 38s ease-in-out infinite alternate; }
+@keyframes drift-a { to { transform: translate(18vw, 12vh) scale(1.15); } }
+@keyframes drift-b { to { transform: translate(-16vw, 18vh) scale(0.9); } }
+@keyframes drift-c { to { transform: translate(-20vw, -22vh) scale(1.2); } }
+
+/* ---------- scroll progress hairline ---------- */
+.scroll-progress {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1.5px; transform-origin: 0 50%; transform: scaleX(0);
+  background: linear-gradient(90deg, var(--up), #9fe7d9 55%, var(--down));
+  box-shadow: 0 0 10px var(--up-glow);
+  pointer-events: none;
+}
+
+/* ---------- route placeholder ---------- */
+.route-wait { min-height: 70vh; padding-top: clamp(36px, 6vw, 72px); display: grid; gap: 16px; align-content: start; }
+.route-wait i { display: block; height: 22px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); opacity: 0; animation: route-wait 600ms var(--ease-x-in) 260ms forwards; }
+.route-wait i:nth-child(1) { width: min(320px, 60%); height: 40px; }
+.route-wait i:nth-child(2) { width: min(560px, 85%); animation-delay: 320ms; }
+.route-wait i:nth-child(3) { width: min(420px, 70%); animation-delay: 380ms; }
+@keyframes route-wait { to { opacity: 1; } }
+
+/* ---------- cursor companion (components/Cursor.tsx) ----------
+ * The native cursor stays; the ring glides after it and wraps controls. */
+.cursor-sparks { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 199; pointer-events: none; overflow: hidden; }
+.cursor-sparks i {
+  position: absolute; left: 0; top: 0; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 99px;
+  background: var(--up); box-shadow: 0 0 12px -2px var(--up-glow); opacity: 0;
+  animation: spark var(--spark-life, 520ms) var(--ease-out) forwards;
+}
+.cursor-sparks i.b { background: var(--down); box-shadow: 0 0 12px -2px var(--down-glow); }
+.cursor-sparks i.pulse {
+  width: 14px; height: 14px; margin: -7px 0 0 -7px; background: transparent;
+  border: 1.5px solid var(--up); box-shadow: none;
+  animation: cursor-pulse 520ms var(--ease-out) forwards;
+}
+@keyframes spark { from { opacity: 0.8; scale: 1; } to { opacity: 0; scale: 0.15; } }
+@keyframes cursor-pulse { from { opacity: 0.7; scale: 0.5; } to { opacity: 0; scale: 3.4; } }
+.cursor-ring {
+  position: fixed; left: 0; top: 0; z-index: 200; pointer-events: none; box-sizing: border-box;
+  width: 30px; height: 30px; border-radius: 999px;
+  border: 1.5px solid rgba(233, 240, 238, 0.45);
+  opacity: 0; will-change: transform, width, height;
+  transition: opacity var(--dur-5) var(--ease), border-color var(--dur-4) var(--ease), background-color var(--dur-4) var(--ease), box-shadow var(--dur-4) var(--ease);
+}
+.cursor-ring.on { opacity: 1; }
+.cursor-ring.snap { border-color: rgba(63, 216, 192, 0.7); background-color: rgba(63, 216, 192, 0.06); box-shadow: 0 0 22px -6px var(--up-glow); }
+.cursor-ring.big { border-color: rgba(63, 216, 192, 0.45); background-color: rgba(63, 216, 192, 0.05); }
+.cursor-ring.dot { border-color: rgba(63, 216, 192, 0.8); background-color: rgba(63, 216, 192, 0.15); }
+.cursor-ring.hide { opacity: 0; }
+@media print { .cursor-sparks, .cursor-ring { display: none; } }
+
+/* ---------- page transitions (View Transitions API) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: vt-out var(--dur-4) var(--ease-out) both; }
+  ::view-transition-new(root) { animation: vt-in var(--dur-6) var(--ease-x-in) both; }
+}
+@keyframes vt-out { to { opacity: 0; translate: 0 -8px; filter: blur(2px); } }
+@keyframes vt-in { from { opacity: 0; translate: 0 14px; } }
+.nav { view-transition-name: site-nav; }
+::view-transition-group(site-nav) { animation: none; }
+
+/* ---------- small utilities ---------- */
+/* An underline that draws from the left. */
+.draw-line {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  transition: background-size var(--dur-5) var(--ease-x);
+}
+.draw-line:hover, .draw-line:focus-visible { background-size: 100% 1px; }
+
+/* Stroke-draw an SVG path when its reveal fires: add pathLength="1" to the path. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion [data-in] .draw, .motion .draw[data-in] { animation: draw 1.4s var(--ease-x-in) backwards; animation-delay: calc(var(--i, 0) * 90ms + var(--d, 0ms)); }
+  .motion [data-reveal]:not([data-in]) .draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
+}
+/* the dash array lives only in the keyframes, so a dashed stroke gets its own pattern back afterwards */
+@keyframes draw { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+
+/* A slow gradient sheen across text. */
+.sheen {
+  background-size: 200% 100%;
+  animation: sheen 8s var(--ease) infinite alternate;
+}
+@keyframes sheen { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+
+@media print {
+  .ambient, .grid-bg, .scroll-progress { display: none; }
+}

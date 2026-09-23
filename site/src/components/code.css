@@ -1,0 +1,25 @@
+/* Motion for the code block's toolbar. The block itself is styled in styles.css;
+ * this only adds the copy confirmation and the small hover affordances. */
+
+.code { transition: border-color var(--dur-4) var(--ease); }
+.code:hover { border-color: var(--line-2); }
+
+/* Copy: two icons stacked in one grid cell. The copy glyph turns away as the
+ * check springs in and draws itself, so the button never reflows. */
+.cp-ico { display: inline-grid; flex: none; }
+.cp-ico > svg { grid-area: 1 / 1; transition: opacity var(--dur-3) var(--ease), scale var(--dur-5) var(--ease-spring), rotate var(--dur-4) var(--ease-x), translate var(--dur-4) var(--ease-x); }
+.cp-ico > svg:last-child { opacity: 0; scale: 0.3; rotate: -60deg; color: var(--up); }
+.copy-btn.is-done .cp-ico > svg:first-child { opacity: 0; scale: 0.3; rotate: 60deg; }
+.copy-btn.is-done .cp-ico > svg:last-child { opacity: 1; scale: 1; rotate: 0deg; }
+.copy-btn:hover:not(.is-done) .cp-ico > svg:first-child { translate: 1px -1px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* the check is ~19.8 user units long */
+  .copy-btn.is-done .cp-ico > svg:last-child path { stroke-dasharray: 20; animation: cp-tick var(--dur-5) var(--ease-x-in) 60ms backwards; }
+  .copy-btn.is-done { animation: cp-ring var(--dur-6) var(--ease-x-out); }
+  .dl-btn:hover svg { animation: dl-bob var(--dur-5) var(--ease-x); }
+}
+@keyframes cp-tick { from { stroke-dashoffset: 20; } }
+@keyframes cp-ring { from { box-shadow: 0 0 0 0 rgba(63, 216, 192, 0.4); } to { box-shadow: 0 0 0 7px rgba(63, 216, 192, 0); } }
+/* one nudge down per hover: "this saves a file" */
+@keyframes dl-bob { 45% { translate: 0 2.5px; } }

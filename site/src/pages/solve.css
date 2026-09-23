@@ -1,0 +1,239 @@
+.solve { padding-top: 28px; }
+.solve-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.solve-top h1 { font-size: clamp(28px, 3.6vw, 38px); letter-spacing: -0.03em; font-weight: 700; }
+.solve-top p { margin-top: 6px; font-size: 14.5px; }
+
+/* Motion on this page only marks state changes: a problem switch, a result
+ * arriving, the solver that is running right now. Nothing runs ahead of the
+ * worker, and replays stay frame-exact (.viz-body.is-replay). */
+
+.solve-status { min-width: 0; max-width: 100%; }
+.solve-status > .pill { animation: st-in var(--dur-3) var(--ease-in) backwards; }
+/* a worker that failed to load reports a whole sentence: it wraps instead of
+   pushing the page sideways */
+.solve-status > .pill.wrap { white-space: normal; height: auto; min-height: 24px; padding: 4px 10px; line-height: 1.45; text-align: left; align-items: flex-start; }
+@keyframes st-in { from { opacity: 0; scale: 0.94; } }
+
+/* Helper and axis text on this page reads against the card, not the page:
+ * --ink-4 falls under 4.5:1 there, so everything informative uses --ink-3. */
+.solve .hint, .solve .field .hint, .solve .fine { color: var(--ink-3); }
+.solve .chart .ax { fill: var(--ink-3); }
+
+.ptabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 16px; scrollbar-width: none; }
+.ptabs::-webkit-scrollbar { display: none; }
+.ptabs button {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 11px; border: 1px solid var(--line);
+  /* translucent (reads as --surface over the page) so the selection pill shows through while it slides */
+  background: rgba(214, 236, 230, 0.028); color: var(--ink-3); font-size: 13.5px; font-weight: 550; cursor: pointer; white-space: nowrap;
+  transition: color var(--dur-3) var(--ease), border-color var(--dur-3) var(--ease), background var(--dur-3) var(--ease), scale var(--dur-2) var(--ease);
+}
+.ptabs button:hover, .ptabs button:focus-visible { color: var(--ink); border-color: var(--line-2); background: rgba(214, 236, 230, 0.05); }
+.ptabs button:active { scale: 0.97; }
+.ptabs button svg { transition: scale var(--dur-5) var(--ease-spring), color var(--dur-3) var(--ease); }
+.ptabs button[aria-pressed="true"] { color: var(--ink); border-color: rgba(63, 216, 192, 0.45); background: linear-gradient(180deg, rgba(63, 216, 192, 0.12), rgba(63, 216, 192, 0.04)), var(--surface); }
+.ptabs button[aria-pressed="true"] svg { color: var(--up); animation: tab-pick var(--dur-5) var(--ease-spring); }
+@keyframes tab-pick { 40% { scale: 1.25; } }
+/* with the motion layer on, the selected look rides on the data-indicator pill */
+.ptabs::before { border-radius: 11px; background: linear-gradient(180deg, rgba(63, 216, 192, 0.12), rgba(63, 216, 192, 0.04)), var(--surface); box-shadow: inset 0 0 0 1px rgba(63, 216, 192, 0.45); }
+.motion .ptabs button[aria-pressed="true"] { background: transparent; border-color: transparent; }
+
+/* a problem switch: the new form and results slide in from the tab's side */
+.swap { animation: swap-in var(--dur-5) var(--ease-x-in) backwards; animation-delay: var(--swap-d, 0ms); }
+@keyframes swap-in { from { opacity: 0; translate: var(--sx, 0px) var(--sy, 8px); } }
+.swap-t { animation: swap-t var(--dur-4) var(--ease-in) backwards; }
+@keyframes swap-t { from { opacity: 0; translate: 0 4px; } }
+
+.solve-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
+.side { position: sticky; top: 76px; }
+.side-about h2 { font-size: 18px; letter-spacing: -0.02em; margin-bottom: 8px; }
+.side-about p { color: var(--ink-3); font-size: 13.5px; line-height: 1.55; }
+.side-params { display: grid; gap: 18px; }
+.seed-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.seed-row .label { font-size: 12.5px; font-weight: 550; color: var(--ink-2); }
+.settings-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; background: none; border: 0; cursor: pointer; padding: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.settings-toggle > span:last-child { transition: color var(--dur-3) var(--ease); }
+.settings-toggle:hover > span:last-child, .settings-toggle:focus-visible > span:last-child { color: var(--ink-2); }
+.settings-toggle .caret { display: inline-block; transition: rotate var(--dur-4) var(--ease-x); }
+.settings-toggle[aria-expanded="true"] .caret { rotate: 180deg; }
+/* 0fr -> 1fr: opens to the content's real height; hidden (and inert) once closed */
+.collapse { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--dur-5) var(--ease-x), visibility 0s linear var(--dur-5); }
+.collapse.open { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--dur-5) var(--ease-x), visibility 0s; }
+/* the side bleed keeps slider halos and focus rings from being clipped */
+.collapse-in { min-height: 0; overflow: hidden; margin: 0 -8px; padding: 0 8px; }
+.collapse .side-params { opacity: 0; translate: 0 -6px; transition: opacity var(--dur-3) var(--ease), translate var(--dur-4) var(--ease); }
+.collapse.open .side-params { opacity: 1; translate: 0 0; transition: opacity var(--dur-4) var(--ease) 80ms, translate var(--dur-5) var(--ease-x) 40ms; }
+
+.main-col { display: grid; gap: 16px; min-width: 0; }
+.main-col > .card:hover, .two > .card:hover { border-color: var(--line-2); }
+.viz-body { padding: 10px; min-height: 320px; display: grid; }
+.viz-box { position: relative; width: 100%; }
+.viz-tip { position: absolute; left: 10px; top: 10px; display: grid; gap: 2px; background: rgba(8, 12, 14, 0.9); border: 1px solid var(--line-2); border-radius: 8px; padding: 5px 9px; font-size: 11.5px; color: var(--ink-2); pointer-events: none; transform-origin: 0 0; animation: tip-in var(--dur-2) var(--ease-in) backwards; }
+.viz-tip b { font-weight: 600; }
+@keyframes tip-in { from { opacity: 0; scale: 0.96; } }
+.viz-body > .parse-err { animation: swap-t var(--dur-4) var(--ease-in) backwards; }
+.viz-empty { height: 380px; border-radius: 10px; }
+/* the custom QUBO's picture is a square matrix: hold that shape while it loads */
+.viz-empty.square { height: auto; width: min(420px, 100%); aspect-ratio: 1; justify-self: center; align-self: center; }
+
+/* Nothing to draw: quiet, centred, and it points at the field holding the error. */
+.viz-none { place-self: center; display: grid; justify-items: center; gap: 6px; max-width: 34ch; padding: 24px; text-align: center; color: var(--ink-3); font-size: 13px; line-height: 1.55; animation: swap-t var(--dur-4) var(--ease-in) backwards; }
+.viz-none svg { color: var(--ink-4); margin-bottom: 4px; }
+.viz-none b { color: var(--ink); font-weight: 600; font-size: 14px; }
+
+/* the field's own error, under the input it belongs to */
+.field-err { font-size: 12.5px; line-height: 1.45; color: var(--ink-2); border-left: 2px solid var(--bad); background: var(--bad-soft); border-radius: 0 8px 8px 0; padding: 7px 10px; overflow-wrap: anywhere; animation: swap-t var(--dur-4) var(--ease-in) backwards; }
+.field-err b { color: var(--bad); font-weight: 600; }
+.textarea.invalid { border-color: rgba(240, 113, 103, 0.55); }
+.textarea.invalid:focus { border-color: rgba(240, 113, 103, 0.8); box-shadow: 0 0 0 3px rgba(240, 113, 103, 0.12); }
+
+.empty-note { font-size: 13px; color: var(--ink-3); line-height: 1.55; border: 1px dashed var(--line-2); border-radius: 11px; padding: 18px 14px; text-align: center; }
+.viz-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--line); }
+.chips-row { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-3); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Icon motion only where the icon mimes the action it triggers: the download
+ * arrow drops, the die rolls, the replay arrow winds back. */
+.act-export svg, .act-dice svg, .act-replay svg { transition: rotate var(--dur-5) var(--ease-spring), translate var(--dur-4) var(--ease-x); }
+.act-export:hover:not(:disabled) svg { translate: 0 2px; }
+.act-dice:hover svg { rotate: 90deg; }
+.act-replay:hover svg { rotate: -50deg; }
+/* play/pause swaps its glyph, which is the state change worth showing */
+.act-play svg { animation: swap-t var(--dur-3) var(--ease-in) backwards; }
+
+/* Solve again: the magnetic drift's transition list, plus the press `scale`
+ * that [data-magnetic] alone would drop. */
+.solve-btn { transition: transform var(--dur-5) var(--ease-spring), background var(--dur-3) var(--ease), box-shadow var(--dur-4) var(--ease), scale var(--dur-2) var(--ease); }
+.solve-btn:hover { transition: transform var(--dur-2) linear, background var(--dur-3) var(--ease), box-shadow var(--dur-4) var(--ease), scale var(--dur-2) var(--ease); }
+.solve-lbl { display: inline-grid; }
+.solve-lbl > span { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: opacity var(--dur-3) var(--ease), translate var(--dur-4) var(--ease-x); }
+.solve-btn .lbl-run { opacity: 0; translate: 0 80%; }
+.solve-btn:not(.is-running) .lbl-run .spinner { animation-play-state: paused; }
+.solve-btn.is-running .lbl-idle { opacity: 0; translate: 0 -80%; }
+.solve-btn.is-running .lbl-run { opacity: 1; translate: 0 0; }
+.solve-btn .kbd { transition: opacity var(--dur-3) var(--ease); }
+.solve-btn.is-running .kbd { opacity: 0; }
+
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.race { position: relative; }
+
+/* Carbon's "stretch" for surfaces that appear: the table on first solve, the verdict */
+@keyframes stretch { from { clip-path: inset(50% 0 50% 0 round var(--r, 10px)); opacity: 0.3; } to { clip-path: inset(0 0 0 0 round var(--r, 10px)); } }
+
+.results { display: grid; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; --r: 11px; animation: stretch var(--dur-5) var(--ease-x-in) backwards; }
+/* the selected row's tint and teal edge are the data-indicator pill, so they slide between rows */
+.results::before { border-radius: 0; background: linear-gradient(var(--up), var(--up)) 0 0 / 2px 100% no-repeat, rgba(63, 216, 192, 0.07); box-shadow: none; }
+.results[data-ind]::before { transition: translate var(--dur-4) var(--ease), width var(--dur-4) var(--ease), height var(--dur-4) var(--ease), opacity var(--dur-3) var(--ease); }
+.rhead, .rrow { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto 70px; gap: 10px; align-items: center; padding: 9px 12px; }
+.rhead { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, 0.015); }
+.rhead span:last-child, .rtime { text-align: right; }
+.rrow { border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; color: var(--ink-2); font-size: 13px; transition: background var(--dur-3) var(--ease); width: 100%; }
+.rrow:last-child { border-bottom: 0; }
+.rrow:hover, .rrow:focus-visible { background: rgba(255, 255, 255, 0.03); }
+.rrow:focus-visible { outline-offset: -2px; border-radius: 0; }
+.rrow.sel { background: rgba(63, 216, 192, 0.07); box-shadow: inset 2px 0 0 var(--up); }
+.motion .rrow.sel { background: transparent; box-shadow: none; }
+.motion .rrow.sel:hover, .motion .rrow.sel:focus-visible { background: rgba(255, 255, 255, 0.03); }
+.rrow.exact .rname { color: var(--up); }
+.rrow.ghost { cursor: default; animation: swap-t var(--dur-3) var(--ease-in) backwards; }
+.rrow.ghost .spinner { justify-self: end; }
+.rname { font-family: var(--mono); font-weight: 600; font-size: 12.5px; color: var(--ink); }
+.rres { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; }
+.rtime { font-size: 12px; color: var(--ink-3); transition: color var(--dur-3) var(--ease); }
+.rrow:not(.ghost):hover .rtime { color: var(--ink-2); }
+
+/* a result arriving: short and crisp (productive range), staggered only when rows land together */
+.rrow.enter { animation: row-in var(--dur-4) var(--ease-x-in) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes row-in { from { opacity: 0; translate: -10px 0; } }
+.rq { display: flex; }
+.rq > .pill { animation: q-pop var(--dur-5) var(--ease-spring) backwards; animation-delay: calc(var(--i, 0) * 45ms + 110ms); }
+@keyframes q-pop { from { opacity: 0; scale: 0.6; } }
+
+/* waiting rows are still; only the solver the worker is on right now shimmers */
+.rrow.queued { opacity: 0.55; }
+.rrow.queued .skeleton { animation: none; }
+.rrow.queued .spinner { animation: none; border-top-color: rgba(255, 255, 255, 0.15); }
+.rrow.run { position: relative; isolation: isolate; overflow: hidden; }
+.rrow.run::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; translate: -100% 0;
+  background: linear-gradient(90deg, transparent, rgba(63, 216, 192, 0.09) 50%, transparent);
+  animation: row-run 1.3s var(--ease) infinite;
+}
+@keyframes row-run { to { translate: 100% 0; } }
+
+.verdict { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 10px; background: rgba(63, 216, 192, 0.06); border: 1px solid rgba(63, 216, 192, 0.18); font-size: 13px; color: var(--ink-2); line-height: 1.55; animation: stretch var(--dur-5) var(--ease-x-in) backwards; }
+.verdict > svg { color: var(--up); flex: none; margin-top: 2px; }
+.verdict > svg, .wall-i { animation: q-pop var(--dur-5) var(--ease-spring) 180ms backwards; }
+.verdict b { color: var(--ink); font-weight: 600; }
+.verdict.wall { background: rgba(242, 162, 92, 0.06); border-color: rgba(242, 162, 92, 0.2); }
+.wall-i { color: var(--down); font-weight: 700; font-size: 16px; line-height: 1.2; flex: none; }
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.metric { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; display: grid; gap: 3px; transition: border-color var(--dur-3) var(--ease); animation: metric-in var(--dur-4) var(--ease-x-in) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.metric:hover { border-color: var(--line-2); }
+.metric span { font-size: 11.5px; color: var(--ink-3); }
+.metric b { font-size: 14px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; animation: metric-in var(--dur-4) var(--ease-in) backwards; animation-delay: calc(var(--i, 0) * 40ms + 40ms); }
+.metric.good b { color: var(--up); }
+.metric.bad b { color: var(--bad); }
+@keyframes metric-in { from { opacity: 0; translate: 0 5px; } }
+
+/* the plot keeps its axes with no data; the note sits in the empty half */
+.bif-plot { position: relative; }
+/* above the separatrix line and its label, which the canvas draws at mid-height */
+.bif-empty { position: absolute; left: 34px; right: 10px; top: 32%; text-align: center; font-size: 12.5px; color: var(--ink-3); pointer-events: none; }
+
+.cta-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding: 14px 16px; font-size: 13.5px; }
+.cta-strip b { font-weight: 600; }
+
+.code-swap { animation: swap-t var(--dur-4) var(--ease-in) backwards; }
+
+/* partition */
+.partition { display: grid; gap: 12px; align-content: start; padding: 6px; }
+.beam { width: 100%; max-width: 380px; height: auto; justify-self: center; }
+.beam-t { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.plane { display: grid; gap: 6px; }
+.plane-l { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+.plane-l.up { color: var(--up); }
+.plane-l.down { color: var(--down); }
+.pblocks { display: flex; gap: 3px; min-height: 34px; flex-wrap: nowrap; }
+.pblock { min-width: 3px; height: 34px; border-radius: 5px; border: 1px solid; display: grid; place-items: center; overflow: hidden; transition: background var(--dur-4) var(--ease), border-color var(--dur-4) var(--ease); }
+.pblock b { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink); }
+.pdiff { font-size: 12.5px; color: var(--ink-3); text-align: center; }
+.pdiff b { color: var(--ink); }
+
+/* portfolio */
+.portfolio { display: grid; gap: 12px; }
+.portfolio .chart { background: transparent; border: 0; }
+.tickers { display: flex; flex-wrap: wrap; gap: 5px; }
+.ticker { font-family: var(--mono); font-size: 11px; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-3); transition: color var(--dur-4) var(--ease), background var(--dur-4) var(--ease), border-color var(--dur-4) var(--ease); }
+.ticker.on { color: var(--ink); background: var(--up-soft); }
+.pf-pt { transition: opacity var(--dur-4) var(--ease); }
+.pf-dot { transition: fill var(--dur-4) var(--ease), r var(--dur-4) var(--ease-spring); }
+.pf-halo { transition: r var(--dur-5) var(--ease-spring); }
+
+/* matrix */
+.matrix { display: grid; gap: 10px; justify-items: center; padding: 6px; }
+.matrix canvas { border-radius: 8px; border: 1px solid var(--line); }
+.matrix-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 11.5px; color: var(--ink-3); justify-content: center; }
+.matrix-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.bitrow { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; max-width: 100%; }
+.bitrow span { font-family: var(--mono); font-size: 11px; width: 20px; height: 22px; display: grid; place-items: center; border-radius: 5px; background: var(--down-soft); color: var(--down); transition: background var(--dur-4) var(--ease), color var(--dur-4) var(--ease); }
+.bitrow span.on { background: var(--up-soft); color: var(--up); }
+
+/* Replays and scrubbing change the state every frame: no easing, so the
+ * pictures stay locked to the bifurcation plot. */
+.viz-body.is-replay .pblock, .viz-body.is-replay .ticker, .viz-body.is-replay .pf-pt, .viz-body.is-replay .pf-dot, .viz-body.is-replay .pf-halo, .viz-body.is-replay .bitrow span { transition: none; }
+
+@media (max-width: 1100px) {
+  .two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .solve-grid { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; order: 2; }
+  .main-col { order: 1; }
+}
+@media (max-width: 480px) {
+  .rhead, .rrow { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .rhead span:last-child, .rtime { display: none; }
+  /* title + coupling toggle + play controls only just fit at 390 px */
+  .bif .card-h { gap: 6px; }
+}

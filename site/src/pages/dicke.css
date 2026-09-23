@@ -1,0 +1,112 @@
+.dk-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+
+/* Captions, hints and axis labels sit on a card, where --ink-4 is below 4.5:1.
+ * Everything a reader is meant to read is --ink-3 or brighter. */
+.dicke .fine, .dicke .field .hint, .dicke .hint { color: var(--ink-3); }
+
+.dk-verify { position: relative; }
+.dk-verify .kpis .num { font-size: 19px; }
+.weights { display: flex; gap: 4px; align-items: flex-end; height: 110px; padding-top: 6px; }
+.wcol { flex: 1; display: grid; grid-template-rows: 1fr auto; gap: 4px; height: 100%; min-width: 0; }
+.wbar { position: relative; background: rgba(255, 255, 255, 0.03); border-radius: 4px; overflow: hidden; transition: background var(--dur-3) var(--ease); }
+.wbar span { position: absolute; left: 0; right: 0; bottom: 0; background: var(--ink-4); border-radius: 4px; transition: height .3s; transform-origin: 50% 100%; }
+.wcol.on .wbar span { background: linear-gradient(180deg, #52e6cf, #2fc2ab); box-shadow: 0 0 18px -4px var(--up-glow); }
+.wcol small { font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: center; transition: color var(--dur-3) var(--ease); }
+.wcol.on small { color: var(--up); }
+.wcol:hover .wbar { background: rgba(255, 255, 255, 0.06); }
+.wcol:hover small { color: var(--ink-2); }
+.wcol.on:hover small { color: var(--up); }
+
+.counts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: stretch; }
+.counts > div { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: grid; gap: 1px; min-width: 64px; overflow: hidden; transition: border-color var(--dur-4) var(--ease), background var(--dur-4) var(--ease); }
+.counts > div:not(.sep):hover { border-color: var(--line-2); background: rgba(255, 255, 255, 0.02); }
+.counts > div.sep { border: 0; padding: 0; min-width: 0; width: 1px; background: var(--line); margin: 0 4px; }
+.counts b { font-size: 17px; font-weight: 600; }
+.counts span { font-size: 11.5px; color: var(--ink-3); }
+
+.circuit-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 11px; background: rgba(0, 0, 0, 0.2); padding: 6px 0; }
+.circuit-scroll svg { display: block; max-width: none; }
+.circ-cap { margin-top: 8px; }
+.wire-l { font-family: var(--mono); font-size: 11px; fill: var(--ink-3); }
+.g-l { font-family: var(--mono); font-size: 11px; font-weight: 600; fill: var(--ink); }
+.notes { margin-top: 12px; }
+.notes summary { cursor: pointer; font-size: 13px; color: var(--ink-3); transition: color var(--dur-3) var(--ease); }
+.notes summary:hover { color: var(--ink); }
+.notes ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.notes[open] > :not(summary) { animation: fadein var(--dur-5) var(--ease-x-in) both; }
+
+.amps { display: grid; gap: 10px; }
+.amp-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--line); }
+.amp { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 2px; max-width: 44px; }
+.amp span { width: 100%; border-radius: 3px 3px 0 0; opacity: .85; transform-origin: 50% 100%; transition: opacity var(--dur-3) var(--ease), filter var(--dur-3) var(--ease); }
+.amp:hover span { opacity: 1; filter: brightness(1.18) drop-shadow(0 0 6px rgba(214, 236, 230, 0.18)); }
+
+/* ---------- circuit: hover ----------
+ * The hovered gate glows in its own colour and the rest of the circuit steps
+ * back, so the tooltip's gate is obvious in a dense circuit. */
+.dk-gate { cursor: help; transition: opacity var(--dur-4) var(--ease), filter var(--dur-3) var(--ease); }
+.dk-tgt { transform-box: fill-box; transform-origin: 50% 50%; transition: scale var(--dur-4) var(--ease-spring); }
+.dk-gate:hover .dk-tgt { scale: 1.12; }
+.dk-gate.g-cx:hover { filter: drop-shadow(0 0 5px rgba(63, 216, 192, 0.7)); }
+.dk-gate.g-cnry:hover { filter: drop-shadow(0 0 5px rgba(242, 162, 92, 0.65)); }
+.dk-gate.g-x:hover { filter: drop-shadow(0 0 5px rgba(214, 236, 230, 0.4)); }
+.circ:has(.dk-gate:hover) .dk-gate:not(:hover) { opacity: 0.4; }
+
+.dk-pulse { fill: none; stroke: var(--up); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: var(--dash, 0.05) 2; stroke-dashoffset: var(--dash, 0.05); opacity: 0; pointer-events: none; }
+
+/* The two states where there is no measurement to show: one asks for it, one
+ * explains why it cannot happen here. Both are composed blocks, not stray text. */
+.dk-note { display: grid; gap: 12px; justify-items: start; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: rgba(0, 0, 0, 0.14); font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+.dk-note.wall { grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; background: rgba(242, 162, 92, 0.06); border-color: rgba(242, 162, 92, 0.2); }
+.dk-note b { color: var(--ink); font-weight: 600; }
+.dk-note-i { color: var(--down); font-weight: 700; font-size: 16px; line-height: 1.3; }
+
+/* An indeterminate scan along the top of the card while a manual simulation runs. */
+.dk-scan { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; border-radius: var(--radius) var(--radius) 0 0; pointer-events: none; }
+.dk-scan i { position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, var(--up), transparent); box-shadow: 0 0 12px var(--up-glow); }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* build: wires draw left to right, then each column of gates arrives in turn */
+  .circ .dk-wire path { stroke-dasharray: 1; }
+  .circ:not(.play) .dk-wire path { stroke-dashoffset: 1; }
+  .circ:not(.play) .dk-wire text, .circ:not(.play) .dk-gate { opacity: 0; }
+  .circ.play .dk-wire path { animation: dk-draw 560ms var(--ease-x-in) backwards; animation-delay: calc(var(--q) * var(--wstep)); }
+  .circ.play .dk-wire text { animation: dk-fade var(--dur-4) var(--ease) backwards; animation-delay: calc(var(--q) * var(--wstep)); }
+  .circ.play .dk-gate { animation: dk-fade var(--dur-3) var(--ease) backwards; animation-delay: calc(160ms + var(--c) * var(--step)); }
+  .circ.play .dk-link { stroke-dasharray: 1; animation: dk-draw var(--dur-4) var(--ease-x-in) backwards; animation-delay: calc(160ms + var(--c) * var(--step)); }
+  .circ.play .dk-tgt { animation: dk-pop var(--dur-5) var(--ease-spring) backwards; animation-delay: calc(220ms + var(--c) * var(--step)); }
+  .circ.play .dk-pulse { animation: dk-pulse 1.4s var(--ease-x) both; animation-delay: calc(var(--built) + var(--q) * 30ms); filter: drop-shadow(0 0 4px var(--up-glow)); }
+
+  /* results: bars grow from the baseline, staggered, whenever a new state arrives */
+  .amp-bars:not(.play) .amp span, .weights:not(.play) .wbar span { scale: 1 0; }
+  .amp-bars.play .amp span, .weights.play .wbar span { animation: dk-grow var(--dur-6) var(--ease-x-in) backwards; animation-delay: calc(var(--i) * var(--step)); }
+
+  /* verification: a brief spring and a self-drawing check on pass, one shake on fail */
+  .dk-pass { animation: dk-pass var(--dur-5) var(--ease-spring) backwards; }
+  .dk-pass svg path { stroke-dasharray: 20; animation: dk-tick var(--dur-5) var(--ease-x-in) 140ms backwards; }
+  .dk-fail { animation: dk-shake 440ms var(--ease) backwards; }
+  .dk-scan i { animation: dk-scan 1.3s var(--ease-x) infinite; }
+
+  /* keyed swaps: numbers that changed roll in, a new export fades in */
+  .dk-tick { animation: dk-tick-in var(--dur-4) var(--ease-in) backwards; }
+  .dk-swap { animation: dk-swap var(--dur-4) var(--ease-in) backwards; }
+}
+@keyframes dk-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes dk-fade { from { opacity: 0; } }
+@keyframes dk-pop { from { opacity: 0; scale: 0.4; } }
+@keyframes dk-pulse { 0% { stroke-dashoffset: var(--dash, 0.05); opacity: 0; } 12%, 80% { opacity: 0.75; } 100% { stroke-dashoffset: -1; opacity: 0; } }
+@keyframes dk-grow { from { scale: 1 0; } }
+@keyframes dk-pass { from { opacity: 0; scale: 0.6; } 55% { box-shadow: 0 0 0 5px rgba(63, 216, 192, 0.14); } }
+@keyframes dk-tick { from { stroke-dashoffset: 20; } }
+@keyframes dk-shake { 18% { translate: -5px 0; } 36% { translate: 4px 0; } 54% { translate: -3px 0; } 72% { translate: 2px 0; } }
+@keyframes dk-scan { from { translate: -100% 0; } to { translate: 250% 0; } }
+@keyframes dk-tick-in { from { opacity: 0; translate: 0 0.45em; } }
+@keyframes dk-swap { from { opacity: 0; translate: 0 5px; } }
+
+@media (max-width: 900px) {
+  .dk-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* at phone width "1.000000000000" is wider than its half-width tile */
+@media (max-width: 480px) {
+  .dk-verify .kpis .num { font-size: 15px; overflow-wrap: anywhere; }
+}
