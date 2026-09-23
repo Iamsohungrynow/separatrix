@@ -69,7 +69,7 @@ pub use pt::PtConfig;
 pub use quantized::{QuantizedQubo, DEFAULT_MAX_COEFF};
 pub use result::{spins_from_bits, SolveResult};
 pub use sa::SaConfig;
-pub use sb::{SbConfig, SbVariant};
+pub use sb::{SbConfig, SbTrace, SbVariant};
 
 use num_traits::Float;
 
