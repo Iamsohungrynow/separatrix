@@ -60,3 +60,6 @@ dashboard/node_modules/
 # reports/examples/ — git never descends into a fully-ignored directory.
 reports/*
 !reports/examples/
+
+# local agent prompts and settings
+.claude/
