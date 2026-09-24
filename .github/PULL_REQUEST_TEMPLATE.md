@@ -6,7 +6,7 @@
 
 ## Pillar
 
-- [ ] Solver crate (`separatrix/`) or browser demo (`site/demo`)
+- [ ] Solver crate (`separatrix/`) or Separatrix Studio (`site/`)
 - [ ] Solana programs / bridges (`programs/`, `scripts/`, `idl/`, `dashboard/leash-ix.js`)
 - [ ] Python: demo agent, workbench, quantum primitives, tests
 - [ ] Docs, CI, or tooling only
@@ -26,7 +26,12 @@ Solver crate (inside `separatrix/`):
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings`
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo check --no-default-features --target wasm32-unknown-unknown`
-- [ ] `scripts/build-wasm-demo.sh` and the regenerated `site/demo/pkg` is committed (if the solver changed)
+- [ ] `scripts/build-wasm-demo.sh` and the regenerated `site/public/pkg` is committed (if the solver changed)
+
+Studio (inside `site/`):
+
+- [ ] `npm test`
+- [ ] `npm run build`
 
 Solana / Anchor:
 
@@ -59,5 +64,5 @@ Not run, and why:
 ## Hygiene
 
 - [ ] No `.env`, keys, secrets, database files, logs, or credentials are included.
-- [ ] No generated junk (build output, caches, temp folders) is included; regenerated artifacts that are meant to be committed (`idl/*.json`, `site/demo/pkg`) are the only generated files in the diff.
+- [ ] No generated junk (build output, caches, temp folders) is included; regenerated artifacts that are meant to be committed (`idl/*.json`, `site/public/pkg`) are the only generated files in the diff.
 - [ ] Commit messages use a `feat:` / `fix:` / `docs:` / `test:` / `chore:` / `ci:` prefix and describe one theme each.
