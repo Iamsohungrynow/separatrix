@@ -98,6 +98,10 @@ jobs:
         run: npm test
       - name: Type-check and build
         run: npm run build
+      - name: Deploy config parses
+        # an unparseable vercel.json is ignored silently, taking the SPA
+        # rewrite with it, and every deep link 404s in production
+        run: node -e "JSON.parse(require('fs').readFileSync('vercel.json','utf8'))"
 
   separatrix-crate:
     name: Rust solver crate
