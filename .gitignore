@@ -16,7 +16,7 @@ secrets/
 # Database
 *.db
 *.db-journal
-data/
+/data/
 .tmp-pip/
 .tmp-tests/
 .tmp-installs/

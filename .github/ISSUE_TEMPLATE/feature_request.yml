@@ -14,7 +14,7 @@ body:
       description: Which part of the repository would this touch?
       options:
         - Solver crate (`separatrix/`)
-        - Browser demo (`site/demo`)
+        - Separatrix Studio (`site/`)
         - Workbench (`agent/workbench`)
         - Leash program / bridge
         - Separatrix program / bridge

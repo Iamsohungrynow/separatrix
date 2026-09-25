@@ -13,33 +13,51 @@ updates:
     directory: /separatrix
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     groups:
       cargo-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      cargo-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   # npm: the TypeScript bridge, Anchor test tooling, and type-check.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     groups:
       npm-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      npm-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   # npm: the Studio web app (Vite + React), its own package.json.
   - package-ecosystem: npm
     directory: /site
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     groups:
       site-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      site-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   # pip: the requirements*.txt files at the root. requirements-quantinuum.txt
   # carries exact pins that were installed and exercised by hand; a bump there
@@ -48,18 +66,30 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     groups:
       pip-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      pip-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    commit-message:
+      prefix: chore
+      include: scope
     open-pull-requests-limit: 5
     groups:
       actions-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      actions-major:
+        patterns: ["*"]
+        update-types: ["major"]

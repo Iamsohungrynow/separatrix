@@ -2,6 +2,8 @@
 name = "separatrix"
 version = "0.2.0"
 edition = "2021"
+# Option::is_none_or (portfolio.rs) landed in 1.82; rayon 1.12 needs 1.80.
+rust-version = "1.82"
 license = "MIT"
 authors = ["Martina <261225237+Iamsohungrynow@users.noreply.github.com>"]
 description = "Quantum-inspired Ising/QUBO solvers: simulated bifurcation (bSB/dSB) with honest classical baselines (simulated annealing, parallel tempering, exact), plus a cardinality-constrained portfolio module with proven ground truth."
