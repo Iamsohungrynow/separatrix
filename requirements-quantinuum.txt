@@ -11,24 +11,24 @@
 # NOTE: guppylang requires Python >= 3.12.
 
 # --- TKET: circuit construction + compilation to the Helios native gate set ---
-pytket==2.18.1
+pytket==2.18.3
 # Qiskit <-> pytket interop. This is what makes the port of scripts/heron_qaoa.py
 # nearly free: qiskit_to_tk(build_dicke_circuit(n, k)) round-trips at fidelity 1.0.
-pytket-qiskit==0.77.0
+pytket-qiskit==0.78.0
 # Quantinuum backends. QuantinuumAPIOffline compiles for H1-1/H2-1/H2-2 with NO
 # credentials. Helios is NOT in the offline device list in this version.
-pytket-quantinuum==0.59.2
+pytket-quantinuum==0.59.3
 
 # --- Guppy: the Python-embedded quantum DSL targeting Helios ---
-guppylang==1.0.1
+guppylang==1.1.1
 
 # --- Selene: Quantinuum's Helios emulator. Runs fully locally, no account. ---
-selene-sim==0.3.0
+selene-sim==0.3.2
 # Required to feed HUGR (i.e. Guppy) programs into Selene.
-selene-hugr-qis-compiler==0.4.2
+selene-hugr-qis-compiler==0.5.0
 
 # --- Nexus client. Import works offline; any API call needs credentials. ---
-qnexus==0.48.1
+qnexus==0.49.0
 
 # NOT required, deliberately. `qir-qis` is Selene's optional QIR front end, and
 # the pytket -> QIR -> Selene route was tried and does NOT work with these
@@ -41,5 +41,5 @@ qnexus==0.48.1
 # Pulled in transitively but pinned because results depend on them:
 qiskit==2.5.2
 qiskit-ibm-runtime==0.49.0   # FakeKingston heavy-hex, the routing-tax control arm
-numpy==2.5.2
-scipy==1.18.0
+numpy==2.5.3
+scipy==1.18.1
