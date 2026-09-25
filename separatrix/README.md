@@ -89,7 +89,7 @@ heuristic begins only where `C(N,K)` stops being enumerable. Anyone reading
 "quantum-inspired solver beats classical" into this table is misreading it.
 
 The methodology, cost model, baselines, and limitations are in
-[`docs/workbench.md`](../docs/workbench.md), including the exact command that
+[`docs/workbench.md`](https://github.com/Iamsohungrynow/separatrix/blob/main/docs/workbench.md), including the exact command that
 reproduces every figure above.
 
 ## Correctness

@@ -15,7 +15,7 @@ body:
       description: Which part of the repository is affected?
       options:
         - Solver crate (`separatrix/`)
-        - Browser demo (`site/demo`)
+        - Separatrix Studio (`site/`)
         - Workbench (`agent/workbench`)
         - Leash program / bridge
         - Separatrix program / bridge

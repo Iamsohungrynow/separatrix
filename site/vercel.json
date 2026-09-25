@@ -9,7 +9,7 @@
     { "source": "/demo/", "destination": "/solve/portfolio", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/((?!assets/|pkg/|data/|solver-worker\.js|favicon\.svg|og\.png).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|pkg/|data/|solver-worker\\.js|favicon\\.svg|og\\.png).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

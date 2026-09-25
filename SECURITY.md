@@ -22,7 +22,7 @@ In scope:
 - the bridge scripts under `scripts/` (`devnet-leash.ts`, `devnet-separatrix.ts`, the IDL generators and verifiers, the setup and deploy scripts)
 - the FastAPI service in `agent/api`
 - the owner console `dashboard/owner.html` and its instruction encoder `dashboard/leash-ix.js`
-- the browser WASM demo in `site/demo`
+- Separatrix Studio, the browser app in `site/`
 
 Out of scope:
 

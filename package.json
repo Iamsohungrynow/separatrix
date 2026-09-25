@@ -40,7 +40,7 @@
     "lint:ts": "tsc --noEmit"
   },
   "devDependencies": {
-    "@coral-xyz/anchor": "0.30.1",
+    "@coral-xyz/anchor": "0.32.1",
     "@types/chai": "^4.3.12",
     "@types/mocha": "^10.0.7",
     "chai": "^4.4.1",
