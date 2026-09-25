@@ -11,4 +11,4 @@ numpy>=1.26.0
 # Local development
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-ruff>=0.3.0
+ruff==0.15.18  # pinned: an unpinned linter turns any ruff release into a red build
