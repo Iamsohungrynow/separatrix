@@ -26,6 +26,10 @@ updates:
         update-types: ["major"]
 
   # npm: the TypeScript bridge, Anchor test tooling, and type-check.
+  #
+  # mocha is held at 10: ts-mocha 10.1.0 peer-requires mocha <= 11, so a major
+  # bump fails `npm ci` outright. Lift this when ts-mocha moves or the Anchor
+  # tests switch runner.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -41,6 +45,9 @@ updates:
       npm-major:
         patterns: ["*"]
         update-types: ["major"]
+    ignore:
+      - dependency-name: mocha
+        update-types: ["version-update:semver-major"]
 
   # npm: the Studio web app (Vite + React), its own package.json.
   - package-ecosystem: npm
