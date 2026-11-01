@@ -12,9 +12,9 @@
 # CPython 3.12 (Windows). numpy is already in requirements.txt; repeated here
 # so this file installs standalone.
 
-qiskit>=2.0,<3
-qiskit-ibm-runtime>=0.40
-numpy>=1.26.0
+qiskit>=2.6.1,<3
+qiskit-ibm-runtime>=0.51.0
+numpy>=2.5.4
 
 # Not required. The script's simulator is qiskit's exact statevector
 # (qiskit.quantum_info.Statevector), which needs no Aer build; install Aer only
